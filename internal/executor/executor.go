@@ -12,11 +12,12 @@ import (
 
 // Agent represents an AI agent with tools and state
 type Agent struct {
-	Name         string
-	Instructions string
-	Tools        []tools.Tool
-	Provider     provider.LLMProvider
-	State        any
+	Name             string
+	Instructions     string
+	Tools            []tools.Tool
+	Provider         provider.LLMProvider
+	State            any
+	StructuredOutput response.StructuredOutput
 }
 
 // AgentExecutor handles agent execution and coordination
@@ -94,10 +95,25 @@ func (e *AgentExecutor) Execute(ctx context.Context, agentName string, input str
 
 		// If no tool calls and response is finished, we're done
 		if llmResp.Finished {
-			responseChan <- response.AgentResponse{
+			finalResponse := response.AgentResponse{
 				Type:    response.ResponseTypeFinal,
 				Content: llmResp.Content,
 			}
+
+			// If agent has structured output configured, try to parse it
+			if agent.StructuredOutput != nil {
+				if structuredData, err := agent.StructuredOutput.ValidateAndUnmarshal([]byte(llmResp.Content)); err == nil {
+					finalResponse.StructuredData = structuredData
+					finalResponse.Content = "" // Clear content when structured data is available
+				} else {
+					// If parsing fails, include error in metadata
+					finalResponse.Metadata = map[string]any{
+						"structured_output_error": err.Error(),
+					}
+				}
+			}
+
+			responseChan <- finalResponse
 			break
 		}
 	}
@@ -106,17 +122,21 @@ func (e *AgentExecutor) Execute(ctx context.Context, agentName string, input str
 }
 
 // ExecuteAgentAsTool allows one agent to invoke another as a tool
-func (e *AgentExecutor) ExecuteAgentAsTool(ctx context.Context, agentName string, input string) (string, error) {
+func (e *AgentExecutor) ExecuteAgentAsTool(ctx context.Context, agentName string, input string) (any, error) {
 	responseChan := make(chan response.AgentResponse, 10)
 
 	go func() {
 		e.Execute(ctx, agentName, input, responseChan)
 	}()
 
-	var finalResult string
-	for response := range responseChan {
-		if response.Type == response.ResponseTypeFinal {
-			finalResult = response.Content
+	var finalResult any
+	for resp := range responseChan {
+		if resp.Type == response.ResponseTypeFinal {
+			if resp.StructuredData != nil {
+				finalResult = resp.StructuredData
+			} else {
+				finalResult = resp.Content
+			}
 		}
 	}
 

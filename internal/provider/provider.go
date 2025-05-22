@@ -25,10 +25,10 @@ type LLMProvider interface {
 
 // LLMResponse represents a response from an LLM
 type LLMResponse struct {
-	Content   string                `json:"content"`
-	ToolCalls []response.ToolCall   `json:"tool_calls,omitempty"`
-	Finished  bool                  `json:"finished"`
-	Usage     *TokenUsage           `json:"usage,omitempty"`
+	Content   string              `json:"content"`
+	ToolCalls []response.ToolCall `json:"tool_calls,omitempty"`
+	Finished  bool                `json:"finished"`
+	Usage     *TokenUsage         `json:"usage,omitempty"`
 }
 
 // TokenUsage tracks token consumption

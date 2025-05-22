@@ -78,8 +78,8 @@ func main() {
 	}
 
 	// Create executor and register agent
-	executor := executor.NewAgentExecutor()
-	executor.RegisterAgent("assistant", agent)
+	agentExecutor := executor.NewAgentExecutor()
+	agentExecutor.RegisterAgent("assistant", agent)
 
 	// Execute agent
 	ctx := context.Background()
@@ -88,7 +88,7 @@ func main() {
 	// Test parallel tool execution
 	fmt.Println("=== Testing Parallel Tool Execution ===")
 	go func() {
-		err := executor.Execute(ctx, "assistant", "Check the weather and send me an email about it", responseChan)
+		err := agentExecutor.Execute(ctx, "assistant", "Check the weather and send me an email about it", responseChan)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 		}
@@ -109,7 +109,7 @@ func main() {
 	fmt.Println("\n=== Testing Single Tool Execution ===")
 	responseChan = make(chan response.AgentResponse, 10)
 	go func() {
-		err := executor.Execute(ctx, "assistant", "What's the weather in New York?", responseChan)
+		err := agentExecutor.Execute(ctx, "assistant", "What's the weather in New York?", responseChan)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 		}
@@ -131,5 +131,59 @@ func main() {
 	for _, tool := range agent.Tools {
 		schema, _ := json.MarshalIndent(tool.JSONSchema(), "", "  ")
 		fmt.Printf("\n%s:\n%s\n", tool.Name(), schema)
+	}
+
+	// Test structured output
+	fmt.Println("\n=== Testing Structured Output ===")
+
+	// Define a structured output type
+	type WeatherReport struct {
+		Location    string  `json:"location" description:"The location for the weather report"`
+		Temperature float64 `json:"temperature" description:"Temperature in the specified units"`
+		Condition   string  `json:"condition" description:"Weather condition (e.g., sunny, cloudy, rainy)"`
+		Humidity    int     `json:"humidity,omitempty" description:"Humidity percentage"`
+		WindSpeed   float64 `json:"wind_speed,omitempty" description:"Wind speed"`
+	}
+
+	// Create structured output schema
+	structuredSchema := response.NewStructuredOutputSchema[WeatherReport]()
+
+	// Print the generated schema
+	schemaJSON, _ := json.MarshalIndent(structuredSchema.JSONSchema(), "", "  ")
+	fmt.Printf("Generated JSON Schema for WeatherReport:\n%s\n", schemaJSON)
+
+	// Create agent with structured output
+	structuredAgent := &executor.Agent{
+		Name:             "WeatherAgent",
+		Instructions:     "You are a weather agent that returns weather data in structured format. Always respond with valid JSON matching the WeatherReport schema.",
+		Tools:            []tools.Tool{weatherTool},
+		Provider:         &provider.MockLLMProvider{},
+		State:            globalState,
+		StructuredOutput: structuredSchema,
+	}
+
+	// Register and execute structured agent
+	agentExecutor.RegisterAgent("weather-agent", structuredAgent)
+	responseChan = make(chan response.AgentResponse, 10)
+
+	go func() {
+		err := agentExecutor.Execute(ctx, "weather-agent", "Get weather for San Francisco", responseChan)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+		}
+	}()
+
+	// Handle structured responses
+	for response := range responseChan {
+		fmt.Printf("[%s] %s\n", response.Type, response.Content)
+		if response.StructuredData != nil {
+			structuredJSON, _ := json.MarshalIndent(response.StructuredData, "", "  ")
+			fmt.Printf("  Structured Data: %s\n", structuredJSON)
+		}
+		if response.Metadata != nil {
+			if err, exists := response.Metadata["structured_output_error"]; exists {
+				fmt.Printf("  Structured Output Error: %v\n", err)
+			}
+		}
 	}
 }
