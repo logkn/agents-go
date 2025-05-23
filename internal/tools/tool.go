@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"runtime"
 	"strings"
 )
 
@@ -155,8 +156,11 @@ func (t *reflectedTool) Execute(ctx context.Context, state any, paramsJSON []byt
 // Helper functions for reflection and schema generation
 
 func extractFunctionName(fn reflect.Value) string {
-	fullName := fn.Type().String()
-	// Extract just the function name from the full type string
+	// Get the actual function name using runtime.FuncForPC
+	pc := fn.Pointer()
+	fullName := runtime.FuncForPC(pc).Name()
+
+	// Extract just the function name from the full package path
 	if idx := strings.LastIndex(fullName, "."); idx != -1 {
 		return fullName[idx+1:]
 	}

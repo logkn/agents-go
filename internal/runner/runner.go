@@ -1,49 +1,18 @@
-package executor
+package runner
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 
+	"github.com/logkn/agents-go/internal/agent"
 	"github.com/logkn/agents-go/internal/provider"
 	"github.com/logkn/agents-go/internal/response"
 	"github.com/logkn/agents-go/internal/tools"
 )
 
-// Agent represents an AI agent with tools and state
-type Agent struct {
-	Name             string
-	Instructions     string
-	Tools            []tools.Tool
-	Provider         provider.LLMProvider
-	State            any
-	StructuredOutput response.StructuredOutput
-}
-
-// AgentExecutor handles agent execution and coordination
-type AgentExecutor struct {
-	agents map[string]*Agent
-}
-
-// NewAgentExecutor creates a new agent executor
-func NewAgentExecutor() *AgentExecutor {
-	return &AgentExecutor{
-		agents: make(map[string]*Agent),
-	}
-}
-
-// RegisterAgent adds an agent to the executor
-func (e *AgentExecutor) RegisterAgent(name string, agent *Agent) {
-	e.agents[name] = agent
-}
-
 // Execute runs an agent with the given input
-func (e *AgentExecutor) Execute(ctx context.Context, agentName string, input string, responseChan chan<- response.AgentResponse) error {
-	agent, exists := e.agents[agentName]
-	if !exists {
-		return fmt.Errorf("agent %s not found", agentName)
-	}
-
+func Run(agent *agent.Agent, input string, ctx context.Context, responseChan chan<- response.AgentResponse) error {
 	defer close(responseChan)
 
 	// Send initial thought
@@ -59,7 +28,7 @@ func (e *AgentExecutor) Execute(ctx context.Context, agentName string, input str
 	}
 
 	maxIterations := 10
-	for i := 0; i < maxIterations; i++ {
+	for range maxIterations {
 		// Get LLM response
 		llmResp, err := agent.Provider.GenerateResponse(ctx, messages, agent.Tools)
 		if err != nil {
@@ -79,7 +48,7 @@ func (e *AgentExecutor) Execute(ctx context.Context, agentName string, input str
 		// Handle tool calls (potentially in parallel)
 		if len(llmResp.ToolCalls) > 0 {
 			// Execute tools in parallel and collect results
-			toolResults := e.executeToolsParallel(ctx, agent, llmResp.ToolCalls, responseChan)
+			toolResults := executeToolsParallel(ctx, agent, llmResp.ToolCalls, responseChan)
 
 			// Add all tool results to conversation
 			for _, result := range toolResults {
@@ -122,11 +91,11 @@ func (e *AgentExecutor) Execute(ctx context.Context, agentName string, input str
 }
 
 // ExecuteAgentAsTool allows one agent to invoke another as a tool
-func (e *AgentExecutor) ExecuteAgentAsTool(ctx context.Context, agentName string, input string) (any, error) {
+func ExecuteAgentAsTool(ctx context.Context, agent *agent.Agent, input string) (any, error) {
 	responseChan := make(chan response.AgentResponse, 10)
 
 	go func() {
-		e.Execute(ctx, agentName, input, responseChan)
+		Run(agent, input, ctx, responseChan)
 	}()
 
 	var finalResult any
@@ -144,10 +113,16 @@ func (e *AgentExecutor) ExecuteAgentAsTool(ctx context.Context, agentName string
 }
 
 // HandoffToAgent transfers control from one agent to another
-func (e *AgentExecutor) HandoffToAgent(ctx context.Context, fromAgent, toAgent, input string, responseChan chan<- response.AgentResponse) error {
+func HandoffToAgent(ctx context.Context, fromAgent *agent.Agent, toAgent string, input string, responseChan chan<- response.AgentResponse) error {
+	handoffAgent, ok := fromAgent.Handoffs()[toAgent]
+
+	if !ok {
+		return fmt.Errorf("handoff agent %s not found in %s's handoffs", toAgent, fromAgent.Name)
+	}
+
 	responseChan <- response.AgentResponse{
 		Type:    response.ResponseTypeHandoff,
-		Content: fmt.Sprintf("Handing off from %s to %s", fromAgent, toAgent),
+		Content: fmt.Sprintf("Handing off from %s to %s", fromAgent.Name, toAgent),
 		Handoff: &response.AgentHandoff{
 			ToAgent: toAgent,
 			Reason:  "User request requires specialized handling",
@@ -155,11 +130,11 @@ func (e *AgentExecutor) HandoffToAgent(ctx context.Context, fromAgent, toAgent, 
 		},
 	}
 
-	return e.Execute(ctx, toAgent, input, responseChan)
+	return Run(handoffAgent, input, ctx, responseChan)
 }
 
 // executeToolsParallel executes multiple tools concurrently and returns results
-func (e *AgentExecutor) executeToolsParallel(ctx context.Context, agent *Agent, toolCalls []response.ToolCall, responseChan chan<- response.AgentResponse) []response.ToolCall {
+func executeToolsParallel(ctx context.Context, agent *agent.Agent, toolCalls []response.ToolCall, responseChan chan<- response.AgentResponse) []response.ToolCall {
 	if len(toolCalls) == 1 {
 		// Single tool call - execute directly for better error reporting
 		toolCall := toolCalls[0]
@@ -169,7 +144,7 @@ func (e *AgentExecutor) executeToolsParallel(ctx context.Context, agent *Agent, 
 			ToolCall: &toolCall,
 		}
 
-		result, err := e.executeTool(ctx, agent, toolCall)
+		result, err := executeTool(ctx, agent, toolCall)
 		toolCall.Result = result
 		if err != nil {
 			toolCall.Error = err.Error()
@@ -201,7 +176,7 @@ func (e *AgentExecutor) executeToolsParallel(ctx context.Context, agent *Agent, 
 	// Start all tool executions
 	for i, toolCall := range toolCalls {
 		go func(index int, tc response.ToolCall) {
-			result, err := e.executeTool(ctx, agent, tc)
+			result, err := executeTool(ctx, agent, tc)
 			resultChan <- toolResult{
 				index:  index,
 				result: result,
@@ -250,7 +225,7 @@ func (e *AgentExecutor) executeToolsParallel(ctx context.Context, agent *Agent, 
 	return results
 }
 
-func (e *AgentExecutor) executeTool(ctx context.Context, agent *Agent, toolCall response.ToolCall) (any, error) {
+func executeTool(ctx context.Context, agent *agent.Agent, toolCall response.ToolCall) (any, error) {
 	// Find the tool
 	var tool tools.Tool
 	for _, t := range agent.Tools {
