@@ -30,7 +30,7 @@ func Run(agent *agent.Agent, input string, ctx context.Context, responseChan cha
 	maxIterations := 10
 	for range maxIterations {
 		// Get LLM response
-		llmResp, err := agent.Provider.GenerateResponse(ctx, messages, agent.Tools)
+		llmResp, err := agent.Model.GenerateResponse(ctx, messages, agent.Tools)
 		if err != nil {
 			responseChan <- response.AgentResponse{
 				Type:    response.ResponseTypeFinal,

@@ -11,7 +11,7 @@ type Agent struct {
 	Name             string
 	Instructions     string
 	Tools            []tools.Tool
-	Provider         provider.LLMProvider
+	Model            provider.LLMProvider
 	State            any
 	StructuredOutput response.StructuredOutput
 	handoffs         []*Agent

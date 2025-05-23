@@ -15,20 +15,17 @@ import (
 // OpenAIProvider implements LLMProvider using OpenAI's API
 type OpenAIProvider struct {
 	client openai.Client
-	model  string
+	Model  string
 }
 
 // NewOpenAIProvider creates a new OpenAI provider instance
 // If apiKey is empty, it will attempt to use the OPENAI_API_KEY environment variable
-func NewOpenAIProvider(apiKey string, model string) *OpenAIProvider {
+func NewOpenAIProvider(model string) *OpenAIProvider {
 	if model == "" {
 		model = string(openai.ChatModelGPT4o)
 	}
 
-	// If no API key provided, try to get it from environment variable
-	if apiKey == "" {
-		apiKey = os.Getenv("OPENAI_API_KEY")
-	}
+	apiKey := os.Getenv("OPENAI_API_KEY")
 
 	client := openai.NewClient(
 		option.WithAPIKey(apiKey),
@@ -36,7 +33,7 @@ func NewOpenAIProvider(apiKey string, model string) *OpenAIProvider {
 
 	return &OpenAIProvider{
 		client: client,
-		model:  model,
+		Model:  model,
 	}
 }
 
@@ -87,7 +84,7 @@ func (p *OpenAIProvider) GenerateResponse(ctx context.Context, messages []Messag
 	// Prepare the request parameters
 	params := openai.ChatCompletionNewParams{
 		Messages: openaiMessages,
-		Model:    openai.ChatModel(p.model),
+		Model:    openai.ChatModel(p.Model),
 	}
 
 	// Add tools if available
@@ -128,7 +125,7 @@ func (p *OpenAIProvider) GenerateResponse(ctx context.Context, messages []Messag
 
 		for _, toolCall := range choice.Message.ToolCalls {
 			// Parse function arguments
-			var args map[string]interface{}
+			var args map[string]any
 			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
 				return nil, fmt.Errorf("failed to parse tool call arguments: %w", err)
 			}

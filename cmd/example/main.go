@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/logkn/agents-go/internal/agent"
+	"github.com/logkn/agents-go/internal/provider"
 	"github.com/logkn/agents-go/internal/response"
 	"github.com/logkn/agents-go/internal/runner"
 	"github.com/logkn/agents-go/internal/state"
@@ -63,6 +64,7 @@ func main() {
 		Tools: []tools.Tool{
 			WeatherTool,
 		},
+		Model: provider.NewOpenAIProvider("gpt-4o-mini"),
 	}
 
 	responseChan := make(chan response.AgentResponse)
