@@ -173,5 +173,151 @@ func (p OpenAIProvider) GenerateResponse(ctx context.Context, messages []Message
 }
 
 func (p OpenAIProvider) StreamResponse(ctx context.Context, messages []Message, tools []*tools.Tool) (<-chan LLMResponseItem, error) {
-	return nil, nil
+	openaiMessages, err := convertMessages(&messages)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert messages to OpenAI format: %w", err)
+	}
+
+	openaiTools := convertTools(tools)
+
+	// Prepare the request parameters for streaming
+	params := openai.ChatCompletionNewParams{
+		Messages: openaiMessages,
+		Model:    openai.ChatModel(p.Model),
+	}
+
+	// Add tools if available
+	if len(openaiTools) > 0 {
+		params.Tools = openaiTools
+	}
+
+	// Create the streaming request
+	stream := p.client.Chat.Completions.NewStreaming(ctx, params)
+
+	// Create response channel
+	responseCh := make(chan LLMResponseItem)
+
+	// Handle streaming in a goroutine
+	go func() {
+		defer close(responseCh)
+		defer stream.Close()
+
+		fullContent := ""
+		accumulatedToolCalls := []response.ToolCall{}
+		usage := TokenUsage{}
+
+		for stream.Next() {
+			chunk := stream.Current()
+
+			if len(chunk.Choices) == 0 {
+				continue
+			}
+
+			choice := chunk.Choices[0]
+			delta := choice.Delta
+
+			// Handle content delta
+			if delta.Content != "" {
+				fullContent += delta.Content
+
+				item := LLMResponseItem{
+					LLMResponse: LLMResponse{
+						Content:  fullContent,
+						Finished: false,
+					},
+					Delta: delta.Content,
+				}
+
+				select {
+				case responseCh <- item:
+				case <-ctx.Done():
+					return
+				}
+			}
+
+			// Handle tool calls
+			if len(delta.ToolCalls) > 0 {
+				for _, toolCall := range delta.ToolCalls {
+					// Find or create the tool call in our accumulated list
+					toolCallIndex := int(toolCall.Index)
+
+					// Ensure we have enough space in the slice
+					for len(accumulatedToolCalls) <= toolCallIndex {
+						accumulatedToolCalls = append(accumulatedToolCalls, response.ToolCall{})
+					}
+
+					// Update the accumulated tool call
+					if toolCall.ID != "" {
+						accumulatedToolCalls[toolCallIndex].ID = toolCall.ID
+					}
+					if toolCall.Function.Name != "" {
+						accumulatedToolCalls[toolCallIndex].Name = toolCall.Function.Name
+					}
+					if toolCall.Function.Arguments != "" {
+						// Accumulate arguments
+						if accumulatedToolCalls[toolCallIndex].Parameters == nil {
+							accumulatedToolCalls[toolCallIndex].Parameters = make(map[string]any)
+						}
+
+						// Try to parse the accumulated arguments
+						var args map[string]any
+						if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err == nil {
+							accumulatedToolCalls[toolCallIndex].Parameters = args
+						}
+					}
+				}
+
+				item := LLMResponseItem{
+					LLMResponse: LLMResponse{
+						Content:   fullContent,
+						ToolCalls: accumulatedToolCalls,
+						Finished:  false,
+					},
+					Delta: "",
+				}
+
+				select {
+				case responseCh <- item:
+				case <-ctx.Done():
+					return
+				}
+			}
+
+			// Handle usage information
+			if chunk.Usage.PromptTokens > 0 {
+				usage = TokenUsage{
+					InputTokens:  int(chunk.Usage.PromptTokens),
+					OutputTokens: int(chunk.Usage.CompletionTokens),
+					TotalTokens:  int(chunk.Usage.TotalTokens),
+				}
+			}
+
+			// Check if we're finished
+			if string(choice.FinishReason) == "stop" || string(choice.FinishReason) == "tool_calls" {
+				finalItem := LLMResponseItem{
+					LLMResponse: LLMResponse{
+						Content:   fullContent,
+						ToolCalls: accumulatedToolCalls,
+						Finished:  true,
+						Usage:     &usage,
+					},
+					Delta: "",
+				}
+
+				select {
+				case responseCh <- finalItem:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+
+		// Check for streaming errors
+		if err := stream.Err(); err != nil {
+			// Send error by closing the channel - the caller should handle this
+			return
+		}
+	}()
+
+	return responseCh, nil
 }
