@@ -11,11 +11,10 @@ import (
 type ResponseType string
 
 const (
-	ResponseTypeThought      ResponseType = "thought"
-	ResponseTypeIntermediate ResponseType = "intermediate"
-	ResponseTypeToolCall     ResponseType = "tool_call"
-	ResponseTypeFinal        ResponseType = "final"
-	ResponseTypeHandoff      ResponseType = "handoff"
+	ResponseTypeThought  ResponseType = "thought"
+	ResponseTypeToolCall ResponseType = "tool_call"
+	ResponseTypeFinal    ResponseType = "final"
+	ResponseTypeHandoff  ResponseType = "handoff"
 )
 
 // StructuredOutput defines the interface for structured output schemas

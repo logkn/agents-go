@@ -11,6 +11,7 @@ import (
 	"github.com/logkn/agents-go/internal/runner"
 	"github.com/logkn/agents-go/internal/state"
 	"github.com/logkn/agents-go/internal/tools"
+	"github.com/logkn/agents-go/internal/utils"
 )
 
 // Example tool functions
@@ -51,7 +52,7 @@ func SendEmail(
 		params.To, config.SMTPHost, config.SMTPPort), nil
 }
 
-var WeatherTool = tools.RegisterTool(
+var WeatherTool = tools.CreateTool(
 	GetWeather,
 	tools.WithName("GetWeather"),
 	tools.WithDescription("Get current weather for a city"),
@@ -74,22 +75,21 @@ func main() {
 		Instructions: "You are a helpful assistant. You can get weather information and send emails.",
 		Tools: []tools.Tool{
 			WeatherTool,
+			tools.ThinkTool,
 		},
 		Model: provider.NewOpenAIProvider("gpt-4o-mini"),
 		State: globalState,
 	}
 
 	responseChan := make(chan response.AgentResponse)
-	go runner.Run(&agent, "What's the weather in New York?", context.Background(), responseChan)
+	go runner.Run(&agent, "Your task is to find the weather in the hometown of Patrick Stewart. First think about where he is from.", context.Background(), responseChan)
 
 	for resp := range responseChan {
 		switch resp.Type {
-		case response.ResponseTypeThought:
-			fmt.Println("Thought:", resp.Content)
 		case response.ResponseTypeFinal:
 			fmt.Println("Final Response:", resp.Content)
-		case response.ResponseTypeIntermediate:
-			fmt.Println("(Intermediate)", resp.Content)
+		case response.ResponseTypeToolCall:
+			fmt.Println("Tool Call:", utils.JsonDumps(resp.ToolCall))
 		}
 	}
 }

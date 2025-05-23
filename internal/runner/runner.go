@@ -157,11 +157,6 @@ func executeToolsParallel(ctx context.Context, agent *agent.Agent, toolCalls []r
 			toolCall.Error = err.Error()
 		}
 
-		responseChan <- response.AgentResponse{
-			Type:    response.ResponseTypeIntermediate,
-			Content: fmt.Sprintf("Tool %s completed: %v", toolCall.Name, result),
-		}
-
 		return []response.ToolCall{toolCall}
 	}
 
@@ -207,26 +202,10 @@ func executeToolsParallel(ctx context.Context, agent *agent.Agent, toolCalls []r
 
 			completedCount++
 
-			// Send progress update
-			toolName := results[res.index].Name
-			responseChan <- response.AgentResponse{
-				Type:    response.ResponseTypeIntermediate,
-				Content: fmt.Sprintf("Tool %s completed (%d/%d): %v", toolName, completedCount, len(toolCalls), res.result),
-			}
-
 		case <-ctx.Done():
 			// Context cancelled - return partial results
-			responseChan <- response.AgentResponse{
-				Type:    response.ResponseTypeIntermediate,
-				Content: fmt.Sprintf("Tool execution cancelled, completed %d/%d", completedCount, len(toolCalls)),
-			}
 			return results
 		}
-	}
-
-	responseChan <- response.AgentResponse{
-		Type:    response.ResponseTypeIntermediate,
-		Content: fmt.Sprintf("All %d tools completed successfully", len(toolCalls)),
 	}
 
 	return results

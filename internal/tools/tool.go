@@ -50,28 +50,30 @@ type reflectedTool struct {
 	schema      map[string]any
 }
 
-// RegisterTool converts any properly-structured function into a Tool
-func RegisterTool(fn any, opts ...ToolOption) Tool {
+// CreateTool converts any properly-structured function into a Tool
+type ToolcallFunc any
+
+func CreateTool(fn ToolcallFunc, opts ...ToolOption) Tool {
 	fnValue := reflect.ValueOf(fn)
 	fnType := fnValue.Type()
 
 	if fnType.Kind() != reflect.Func {
-		panic("RegisterTool: argument must be a function")
+		panic("CreateTool: argument must be a function")
 	}
 
 	// Validate function signature: func(context.Context, StateInterface, ParamsStruct) (ResultType, error)
 	if fnType.NumIn() != 3 {
-		panic("RegisterTool: function must have exactly 3 parameters (ctx, state, params)")
+		panic("CreateTool: function must have exactly 3 parameters (ctx, state, params)")
 	}
 
 	if fnType.NumOut() != 2 {
-		panic("RegisterTool: function must return (result, error)")
+		panic("CreateTool: function must return (result, error)")
 	}
 
 	// Check parameter types
 	ctxType := fnType.In(0)
 	if !ctxType.Implements(reflect.TypeOf((*context.Context)(nil)).Elem()) {
-		panic("RegisterTool: first parameter must be context.Context")
+		panic("CreateTool: first parameter must be context.Context")
 	}
 
 	stateType := fnType.In(1)
@@ -80,7 +82,7 @@ func RegisterTool(fn any, opts ...ToolOption) Tool {
 	// Check return types
 	errorType := reflect.TypeOf((*error)(nil)).Elem()
 	if !fnType.Out(1).Implements(errorType) {
-		panic("RegisterTool: second return value must be error")
+		panic("CreateTool: second return value must be error")
 	}
 
 	// Extract configuration
