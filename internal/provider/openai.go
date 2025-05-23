@@ -12,7 +12,7 @@ import (
 	"github.com/openai/openai-go/option"
 )
 
-// OpenAIProvider implements LLMProvider using OpenAI's API
+// OpenAIProvider implements LLM using OpenAI's API
 type OpenAIProvider struct {
 	client openai.Client
 	Model  string
@@ -20,7 +20,7 @@ type OpenAIProvider struct {
 
 // NewOpenAIProvider creates a new OpenAI provider instance
 // If apiKey is empty, it will attempt to use the OPENAI_API_KEY environment variable
-func NewOpenAIProvider(model string) *OpenAIProvider {
+func NewOpenAIProvider(model string) LLM {
 	if model == "" {
 		model = string(openai.ChatModelGPT4o)
 	}
@@ -31,14 +31,14 @@ func NewOpenAIProvider(model string) *OpenAIProvider {
 		option.WithAPIKey(apiKey),
 	)
 
-	return &OpenAIProvider{
+	return OpenAIProvider{
 		client: client,
 		Model:  model,
 	}
 }
 
 // GenerateResponse generates a response using OpenAI's chat completion API
-func (p *OpenAIProvider) GenerateResponse(ctx context.Context, messages []Message, tools []tools.Tool) (*LLMResponse, error) {
+func (p OpenAIProvider) GenerateResponse(ctx context.Context, messages []Message, tools []*tools.Tool) (*LLMResponse, error) {
 	// Convert our messages to OpenAI format
 	openaiMessages := make([]openai.ChatCompletionMessageParamUnion, 0, len(messages))
 
@@ -86,7 +86,8 @@ func (p *OpenAIProvider) GenerateResponse(ctx context.Context, messages []Messag
 	// Convert our tools to OpenAI function schema format
 	openaiTools := make([]openai.ChatCompletionToolParam, 0, len(tools))
 
-	for _, tool := range tools {
+	for _, ptool := range tools {
+		tool := *ptool
 		schema := tool.JSONSchema()
 
 		// Convert our schema to OpenAI function format
@@ -171,7 +172,6 @@ func (p *OpenAIProvider) GenerateResponse(ctx context.Context, messages []Messag
 	return llmResponse, nil
 }
 
-// SupportsStreaming returns whether this provider supports streaming responses
-func (p *OpenAIProvider) SupportsStreaming() bool {
-	return true // OpenAI supports streaming, though not implemented yet
+func (p OpenAIProvider) StreamResponse(ctx context.Context, messages []Message, tools []*tools.Tool) (<-chan LLMResponseItem, error) {
+	return nil, nil
 }

@@ -16,10 +16,13 @@ type Message struct {
 	Data      any                 `json:"data,omitempty"`
 }
 
-// LLMProvider abstracts different LLM providers
-type LLMProvider interface {
-	GenerateResponse(ctx context.Context, messages []Message, tools []tools.Tool) (*LLMResponse, error)
-	SupportsStreaming() bool
+// LLM abstracts different LLM providers
+type LLM interface {
+	GenerateResponse(ctx context.Context, messages []Message, tools []*tools.Tool) (*LLMResponse, error)
+}
+
+type Streams interface {
+	StreamResponse(ctx context.Context, messages []Message, tools []*tools.Tool) (<-chan LLMResponseItem, error)
 }
 
 // LLMResponse represents a response from an LLM
@@ -28,6 +31,11 @@ type LLMResponse struct {
 	ToolCalls []response.ToolCall `json:"tool_calls,omitempty"`
 	Finished  bool                `json:"finished"`
 	Usage     *TokenUsage         `json:"usage,omitempty"`
+}
+
+type LLMResponseItem struct {
+	LLMResponse
+	Delta string `json:"delta"`
 }
 
 // TokenUsage tracks token consumption

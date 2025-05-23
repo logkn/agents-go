@@ -73,11 +73,11 @@ func main() {
 	agent := agent.Agent{
 		Name:         "ExampleAgent",
 		Instructions: "You are a helpful assistant. You can get weather information and send emails.",
-		Tools: []tools.Tool{
-			WeatherTool,
-			tools.ThinkTool,
+		Tools: []*tools.Tool{
+			&WeatherTool,
+			&tools.ThinkTool,
 		},
-		Model: provider.NewOpenAIProvider("gpt-4o-mini"),
+		Model: provider.NewOpenAIProvider("gpt-4.1-nano"),
 		State: globalState,
 	}
 

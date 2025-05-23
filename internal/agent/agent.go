@@ -10,16 +10,16 @@ import (
 type Agent struct {
 	Name             string
 	Instructions     string
-	Tools            []tools.Tool
-	Model            provider.LLMProvider
+	Tools            []*tools.Tool
+	Model            provider.LLM
 	State            any
 	StructuredOutput response.StructuredOutput
-	handoffs         []*Agent
+	Handoffs         []*Agent
 }
 
-func (agent *Agent) Handoffs() map[string]*Agent {
+func (agent *Agent) HandoffMap() map[string]*Agent {
 	handoffs := make(map[string]*Agent)
-	for _, handoff := range agent.handoffs {
+	for _, handoff := range agent.Handoffs {
 		handoffs[handoff.Name] = handoff
 	}
 	return handoffs

@@ -121,7 +121,7 @@ func ExecuteAgentAsTool(ctx context.Context, agent *agent.Agent, input string) (
 
 // HandoffToAgent transfers control from one agent to another
 func HandoffToAgent(ctx context.Context, fromAgent *agent.Agent, toAgent string, input string, responseChan chan<- response.AgentResponse) error {
-	handoffAgent, ok := fromAgent.Handoffs()[toAgent]
+	handoffAgent, ok := fromAgent.HandoffMap()[toAgent]
 
 	if !ok {
 		return fmt.Errorf("handoff agent %s not found in %s's handoffs", toAgent, fromAgent.Name)
@@ -213,9 +213,9 @@ func executeToolsParallel(ctx context.Context, agent *agent.Agent, toolCalls []r
 
 func executeTool(ctx context.Context, agent *agent.Agent, toolCall response.ToolCall) (any, error) {
 	// Find the tool
-	var tool tools.Tool
+	var tool *tools.Tool
 	for _, t := range agent.Tools {
-		if t.Name() == toolCall.Name {
+		if (*t).Name() == toolCall.Name {
 			tool = t
 			break
 		}
@@ -232,5 +232,5 @@ func executeTool(ctx context.Context, agent *agent.Agent, toolCall response.Tool
 	}
 
 	// Execute the tool with context timeout protection
-	return tool.Execute(ctx, agent.State, paramsJSON)
+	return (*tool).Execute(ctx, agent.State, paramsJSON)
 }

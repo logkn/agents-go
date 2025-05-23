@@ -9,10 +9,10 @@ import (
 	"github.com/logkn/agents-go/internal/tools"
 )
 
-// MockLLMProvider is a simple implementation for testing
-type MockLLMProvider struct{}
+// MockLLM is a simple implementation for testing
+type MockLLM struct{}
 
-func (m *MockLLMProvider) GenerateResponse(ctx context.Context, messages []Message, tools []tools.Tool) (*LLMResponse, error) {
+func (m *MockLLM) GenerateResponse(ctx context.Context, messages []Message, tools []tools.Tool) (*LLMResponse, error) {
 	// Simple mock - just echo the last message
 	if len(messages) == 0 {
 		return &LLMResponse{
@@ -116,6 +116,6 @@ func (m *MockLLMProvider) GenerateResponse(ctx context.Context, messages []Messa
 	}, nil
 }
 
-func (m *MockLLMProvider) SupportsStreaming() bool {
+func (m *MockLLM) SupportsStreaming() bool {
 	return false
 }
