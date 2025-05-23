@@ -9,10 +9,11 @@ import (
 
 // Message represents a conversation message
 type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-	ToolID  string `json:"tool_id,omitempty"`
-	Data    any    `json:"data,omitempty"`
+	Role      string              `json:"role"`
+	Content   string              `json:"content"`
+	ToolID    string              `json:"tool_id,omitempty"`
+	ToolCalls []response.ToolCall `json:"tool_calls,omitempty"`
+	Data      any                 `json:"data,omitempty"`
 }
 
 // LLMProvider abstracts different LLM providers

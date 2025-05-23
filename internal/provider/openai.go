@@ -47,12 +47,37 @@ func (p *OpenAIProvider) GenerateResponse(ctx context.Context, messages []Messag
 		case "user":
 			openaiMessages = append(openaiMessages, openai.UserMessage(msg.Content))
 		case "assistant":
-			if len(msg.ToolID) > 0 {
-				// This is a tool call response
-				openaiMessages = append(openaiMessages, openai.ToolMessage(msg.ToolID, msg.Content))
+			if len(msg.ToolCalls) > 0 {
+				// Assistant message with tool calls - use manual construction
+				toolCalls := make([]openai.ChatCompletionMessageToolCall, len(msg.ToolCalls))
+				for i, tc := range msg.ToolCalls {
+					// Convert parameters back to JSON string
+					argsJSON, err := json.Marshal(tc.Parameters)
+					if err != nil {
+						return nil, fmt.Errorf("failed to marshal tool call parameters: %w", err)
+					}
+
+					toolCalls[i] = openai.ChatCompletionMessageToolCall{
+						ID:   tc.ID,
+						Type: "function",
+						Function: openai.ChatCompletionMessageToolCallFunction{
+							Name:      tc.Name,
+							Arguments: string(argsJSON),
+						},
+					}
+				}
+
+				assistantMsg := openai.ChatCompletionMessage{
+					Role:      "assistant",
+					Content:   msg.Content,
+					ToolCalls: toolCalls,
+				}
+				openaiMessages = append(openaiMessages, assistantMsg.ToParam())
 			} else {
 				openaiMessages = append(openaiMessages, openai.AssistantMessage(msg.Content))
 			}
+		case "tool":
+			openaiMessages = append(openaiMessages, openai.ToolMessage(msg.Content, msg.ToolID))
 		case "system":
 			openaiMessages = append(openaiMessages, openai.SystemMessage(msg.Content))
 		}
@@ -130,8 +155,10 @@ func (p *OpenAIProvider) GenerateResponse(ctx context.Context, messages []Messag
 				return nil, fmt.Errorf("failed to parse tool call arguments: %w", err)
 			}
 
+			toolID := toolCall.ID
+
 			toolCalls = append(toolCalls, response.ToolCall{
-				ID:         toolCall.ID,
+				ID:         toolID,
 				Name:       toolCall.Function.Name,
 				Parameters: args,
 			})

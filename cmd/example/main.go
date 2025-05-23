@@ -58,6 +58,17 @@ var WeatherTool = tools.RegisterTool(
 )
 
 func main() {
+	globalState := &state.ExampleGlobalState{
+		WeatherAPIKey: "your-weather-api-key",
+		DefaultUnits:  "fahrenheit",
+		EmailConfig: state.EmailConfig{
+			SMTPHost: "smtp.gmail.com",
+			SMTPPort: 587,
+			Username: "your-email@example.com",
+			Password: "your-password",
+		},
+	}
+
 	agent := agent.Agent{
 		Name:         "ExampleAgent",
 		Instructions: "You are a helpful assistant. You can get weather information and send emails.",
@@ -65,10 +76,11 @@ func main() {
 			WeatherTool,
 		},
 		Model: provider.NewOpenAIProvider("gpt-4o-mini"),
+		State: globalState,
 	}
 
 	responseChan := make(chan response.AgentResponse)
-	runner.Run(&agent, "What's the weather in New York?", context.Background(), responseChan)
+	go runner.Run(&agent, "What's the weather in New York?", context.Background(), responseChan)
 
 	for resp := range responseChan {
 		switch resp.Type {

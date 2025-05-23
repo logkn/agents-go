@@ -40,10 +40,17 @@ func Run(agent *agent.Agent, input string, ctx context.Context, responseChan cha
 		}
 
 		// Add assistant message
-		messages = append(messages, provider.Message{
+		assistantMsg := provider.Message{
 			Role:    "assistant",
 			Content: llmResp.Content,
-		})
+		}
+
+		// If this message has tool calls, we need to include them
+		if len(llmResp.ToolCalls) > 0 {
+			assistantMsg.ToolCalls = llmResp.ToolCalls
+		}
+
+		messages = append(messages, assistantMsg)
 
 		// Handle tool calls (potentially in parallel)
 		if len(llmResp.ToolCalls) > 0 {

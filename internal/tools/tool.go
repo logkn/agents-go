@@ -131,6 +131,9 @@ func (t *reflectedTool) Execute(ctx context.Context, state any, paramsJSON []byt
 
 	// Type assert state to required interface
 	stateValue := reflect.ValueOf(state)
+	if !stateValue.IsValid() || stateValue.IsNil() {
+		return nil, fmt.Errorf("state is nil but tool requires %s", t.stateType)
+	}
 	if !stateValue.Type().AssignableTo(t.stateType) {
 		return nil, fmt.Errorf("state does not implement required interface %s", t.stateType)
 	}
