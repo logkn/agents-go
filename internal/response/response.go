@@ -92,7 +92,7 @@ func generateJSONSchema(t reflect.Type) map[string]any {
 	properties := make(map[string]any)
 	required := []string{}
 
-	for i := 0; i < t.NumField(); i++ {
+	for i := range t.NumField() {
 		field := t.Field(i)
 
 		// Skip unexported fields

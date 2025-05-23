@@ -40,72 +40,13 @@ func NewOpenAIProvider(model string) LLM {
 // GenerateResponse generates a response using OpenAI's chat completion API
 func (p OpenAIProvider) GenerateResponse(ctx context.Context, messages []Message, tools []*tools.Tool) (*LLMResponse, error) {
 	// Convert our messages to OpenAI format
-	openaiMessages := make([]openai.ChatCompletionMessageParamUnion, 0, len(messages))
-
-	for _, msg := range messages {
-		switch msg.Role {
-		case "user":
-			openaiMessages = append(openaiMessages, openai.UserMessage(msg.Content))
-		case "assistant":
-			if len(msg.ToolCalls) > 0 {
-				// Assistant message with tool calls - use manual construction
-				toolCalls := make([]openai.ChatCompletionMessageToolCall, len(msg.ToolCalls))
-				for i, tc := range msg.ToolCalls {
-					// Convert parameters back to JSON string
-					argsJSON, err := json.Marshal(tc.Parameters)
-					if err != nil {
-						return nil, fmt.Errorf("failed to marshal tool call parameters: %w", err)
-					}
-
-					toolCalls[i] = openai.ChatCompletionMessageToolCall{
-						ID:   tc.ID,
-						Type: "function",
-						Function: openai.ChatCompletionMessageToolCallFunction{
-							Name:      tc.Name,
-							Arguments: string(argsJSON),
-						},
-					}
-				}
-
-				assistantMsg := openai.ChatCompletionMessage{
-					Role:      "assistant",
-					Content:   msg.Content,
-					ToolCalls: toolCalls,
-				}
-				openaiMessages = append(openaiMessages, assistantMsg.ToParam())
-			} else {
-				openaiMessages = append(openaiMessages, openai.AssistantMessage(msg.Content))
-			}
-		case "tool":
-			openaiMessages = append(openaiMessages, openai.ToolMessage(msg.Content, msg.ToolID))
-		case "system":
-			openaiMessages = append(openaiMessages, openai.SystemMessage(msg.Content))
-		}
+	openaiMessages, err := serializeMessages(&messages)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert messages to OpenAI format: %w", err)
 	}
 
 	// Convert our tools to OpenAI function schema format
-	openaiTools := make([]openai.ChatCompletionToolParam, 0, len(tools))
-
-	for _, ptool := range tools {
-		tool := *ptool
-		schema := tool.JSONSchema()
-
-		// Convert our schema to OpenAI function format
-		functionDef := openai.FunctionDefinitionParam{
-			Name:        tool.Name(),
-			Description: openai.String(tool.Description()),
-		}
-
-		// Convert parameters schema
-		if schema != nil {
-			functionDef.Parameters = schema
-		}
-
-		openaiTools = append(openaiTools, openai.ChatCompletionToolParam{
-			Type:     "function",
-			Function: functionDef,
-		})
-	}
+	openaiTools := serializeTools(tools)
 
 	// Prepare the request parameters
 	params := openai.ChatCompletionNewParams{
@@ -147,23 +88,7 @@ func (p OpenAIProvider) GenerateResponse(ctx context.Context, messages []Message
 
 	// Handle tool calls
 	if len(choice.Message.ToolCalls) > 0 {
-		toolCalls := make([]response.ToolCall, 0, len(choice.Message.ToolCalls))
-
-		for _, toolCall := range choice.Message.ToolCalls {
-			// Parse function arguments
-			var args map[string]any
-			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
-				return nil, fmt.Errorf("failed to parse tool call arguments: %w", err)
-			}
-
-			toolID := toolCall.ID
-
-			toolCalls = append(toolCalls, response.ToolCall{
-				ID:         toolID,
-				Name:       toolCall.Function.Name,
-				Parameters: args,
-			})
-		}
+		toolCalls := deserializeToolCalls(choice.Message.ToolCalls)
 
 		llmResponse.ToolCalls = toolCalls
 		llmResponse.Finished = false // Tool calls mean we're not finished
@@ -173,12 +98,12 @@ func (p OpenAIProvider) GenerateResponse(ctx context.Context, messages []Message
 }
 
 func (p OpenAIProvider) StreamResponse(ctx context.Context, messages []Message, tools []*tools.Tool) (<-chan LLMResponseItem, error) {
-	openaiMessages, err := convertMessages(&messages)
+	openaiMessages, err := serializeMessages(&messages)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert messages to OpenAI format: %w", err)
 	}
 
-	openaiTools := convertTools(tools)
+	openaiTools := serializeTools(tools)
 
 	// Prepare the request parameters for streaming
 	params := openai.ChatCompletionNewParams{
@@ -320,4 +245,112 @@ func (p OpenAIProvider) StreamResponse(ctx context.Context, messages []Message, 
 	}()
 
 	return responseCh, nil
+}
+
+func serializeMessage(msg *Message) (openai.ChatCompletionMessageParamUnion, error) {
+	var zeroOpenAIMessage openai.ChatCompletionMessageParamUnion
+	switch msg.Role {
+	case "user":
+		return openai.UserMessage(msg.Content), nil
+	case "assistant":
+		if len(msg.ToolCalls) > 0 {
+			// Assistant message with tool calls - use manual construction
+			toolCalls := make([]openai.ChatCompletionMessageToolCall, len(msg.ToolCalls))
+			for i, tc := range msg.ToolCalls {
+				// Convert parameters back to JSON string
+				argsJSON, err := json.Marshal(tc.Parameters)
+				if err != nil {
+					return zeroOpenAIMessage, fmt.Errorf("failed to marshal tool call parameters: %w", err)
+				}
+
+				toolCalls[i] = openai.ChatCompletionMessageToolCall{
+					ID:   tc.ID,
+					Type: "function",
+					Function: openai.ChatCompletionMessageToolCallFunction{
+						Name:      tc.Name,
+						Arguments: string(argsJSON),
+					},
+				}
+			}
+
+			assistantMsg := openai.ChatCompletionMessage{
+				Role:      "assistant",
+				Content:   msg.Content,
+				ToolCalls: toolCalls,
+			}
+			return assistantMsg.ToParam(), nil
+		} else {
+			return openai.AssistantMessage(msg.Content), nil
+		}
+	case "tool":
+		return openai.ToolMessage(msg.Content, msg.ToolID), nil
+	case "system":
+		return openai.SystemMessage(msg.Content), nil
+	}
+	return zeroOpenAIMessage, fmt.Errorf("unknown message role: %s", msg.Role)
+}
+
+func serializeMessages(messages *[]Message) ([]openai.ChatCompletionMessageParamUnion, error) {
+	openaiMessages := make([]openai.ChatCompletionMessageParamUnion, 0, len(*messages))
+
+	for _, msg := range *messages {
+		openaiMsg, err := serializeMessage(&msg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert message to OpenAI format: %w", err)
+		}
+		openaiMessages = append(openaiMessages, openaiMsg)
+	}
+
+	return openaiMessages, nil
+}
+
+func serializeTool(ptool *tools.Tool) openai.ChatCompletionToolParam {
+	tool := *ptool
+	schema := tool.JSONSchema()
+
+	// Convert our schema to OpenAI function format
+	functionDef := openai.FunctionDefinitionParam{
+		Name:        tool.Name(),
+		Description: openai.String(tool.Description()),
+	}
+
+	// Convert parameters schema
+	if schema != nil {
+		functionDef.Parameters = schema
+	}
+
+	return openai.ChatCompletionToolParam{
+		Type:     "function",
+		Function: functionDef,
+	}
+}
+
+func serializeTools(tools []*tools.Tool) []openai.ChatCompletionToolParam {
+	openaiTools := make([]openai.ChatCompletionToolParam, 0, len(tools))
+
+	for _, ptool := range tools {
+		openaiTools = append(openaiTools, serializeTool(ptool))
+	}
+
+	return openaiTools
+}
+
+func deserializeToolCalls(toolcalls []openai.ChatCompletionMessageToolCall) []response.ToolCall {
+	toolCalls := make([]response.ToolCall, 0, len(toolcalls))
+
+	for _, toolCall := range toolcalls {
+		// Convert parameters back to JSON string
+		var args map[string]any
+		if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
+			continue // Skip if we can't parse the arguments
+		}
+
+		toolCalls = append(toolCalls, response.ToolCall{
+			ID:         toolCall.ID,
+			Name:       toolCall.Function.Name,
+			Parameters: args,
+		})
+	}
+
+	return toolCalls
 }
