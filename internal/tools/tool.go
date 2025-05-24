@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
+
+	"github.com/logkn/agents-go/internal/events"
 )
 
 // Tool interface that all tools must implement
@@ -14,7 +16,7 @@ type Tool interface {
 	Name() string
 	Description() string
 	JSONSchema() map[string]any
-	Execute(ctx context.Context, state any, paramsJSON []byte) (any, error)
+	Execute(state any, events events.EventBus) (any, error)
 }
 
 // ToolOption allows customizing tool registration
@@ -86,8 +88,9 @@ func CreateTool(fn ToolcallFunc, opts ...ToolOption) Tool {
 	}
 
 	// Extract configuration
+	funcName := extractFunctionName(fnValue)
 	config := &toolConfig{
-		name:        extractFunctionName(fnValue),
+		name:        funcName,
 		description: fmt.Sprintf("Executes %s", extractFunctionName(fnValue)),
 	}
 

@@ -1,0 +1,16 @@
+package tools2
+
+import "github.com/logkn/agents-go/internal/events"
+
+type Tool interface {
+	Name() string
+	Description() string
+	JSONSchema() map[string]any
+	Execute(state any, events events.EventBus) (any, error)
+}
+
+type ToolDef struct {
+	Name        string
+	Description string
+	fn func(params any, events events.EventBus, state) (any, error)
+}
