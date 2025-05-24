@@ -42,7 +42,7 @@ func (bus *EventBus) ListenToType(eventType EventType) <-chan Event {
 	return bus.proxies[eventType]
 }
 
-func (bus *EventBus) ListenAll() <-chan Event {
+func (bus *EventBus) All() <-chan Event {
 	// return the central bus channel
 	return bus.events
 }
