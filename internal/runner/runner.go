@@ -97,6 +97,91 @@ func Run(agent *agent.Agent, input string, ctx context.Context, responseChan cha
 	return nil
 }
 
+func Stream(agent *agent.Agent, input string, ctx context.Context, responseChan chan<- response.AgentResponse) error {
+	defer close(responseChan)
+
+	// Send initial thought
+	responseChan <- response.AgentResponse{
+		Type:    response.ResponseTypeThought,
+		Content: fmt.Sprintf("Processing request: %s", input),
+	}
+
+	// Build conversation context
+	messages := []provider.Message{
+		{Role: "system", Content: agent.Instructions},
+		{Role: "user", Content: input},
+	}
+
+	maxIterations := 10
+	for range maxIterations {
+		// Get LLM response
+		llmResp, err := agent.Model.GenerateResponse(ctx, messages, agent.Tools)
+		if err != nil {
+			responseChan <- response.AgentResponse{
+				Type:    response.ResponseTypeFinal,
+				Content: fmt.Sprintf("Error: %v", err),
+			}
+			return err
+		}
+
+		// Add assistant message
+		assistantMsg := provider.Message{
+			Role:    "assistant",
+			Content: llmResp.Content,
+		}
+
+		// If this message has tool calls, we need to include them
+		if len(llmResp.ToolCalls) > 0 {
+			assistantMsg.ToolCalls = llmResp.ToolCalls
+		}
+
+		messages = append(messages, assistantMsg)
+
+		// Handle tool calls (potentially in parallel)
+		if len(llmResp.ToolCalls) > 0 {
+			// Execute tools in parallel and collect results
+			toolResults := executeToolsParallel(ctx, agent, llmResp.ToolCalls, responseChan)
+
+			// Add all tool results to conversation
+			for _, result := range toolResults {
+				messages = append(messages, provider.Message{
+					Role:    "tool",
+					Content: fmt.Sprintf("Tool result: %v", result.Result),
+					ToolID:  result.ID,
+				})
+			}
+
+			continue // Get next LLM response
+		}
+
+		// If no tool calls and response is finished, we're done
+		if llmResp.Finished {
+			finalResponse := response.AgentResponse{
+				Type:    response.ResponseTypeFinal,
+				Content: llmResp.Content,
+			}
+
+			// If agent has structured output configured, try to parse it
+			if agent.StructuredOutput != nil {
+				if structuredData, err := agent.StructuredOutput.ValidateAndUnmarshal([]byte(llmResp.Content)); err == nil {
+					finalResponse.StructuredData = structuredData
+					finalResponse.Content = "" // Clear content when structured data is available
+				} else {
+					// If parsing fails, include error in metadata
+					finalResponse.Metadata = map[string]any{
+						"structured_output_error": err.Error(),
+					}
+				}
+			}
+
+			responseChan <- finalResponse
+			break
+		}
+	}
+
+	return nil
+}
+
 // ExecuteAgentAsTool allows one agent to invoke another as a tool
 func ExecuteAgentAsTool(ctx context.Context, agent *agent.Agent, input string) (any, error) {
 	responseChan := make(chan response.AgentResponse, 10)
