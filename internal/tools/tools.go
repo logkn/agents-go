@@ -69,5 +69,5 @@ func (t *Tool) Name() string {
 }
 
 func (t *Tool) Schema() map[string]any {
-	return utils.JSONSchema(t.def)
+	return utils.GenerateSchema(t.def)
 }

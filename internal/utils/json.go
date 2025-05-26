@@ -2,11 +2,17 @@ package utils
 
 import (
 	"reflect"
-
-	"github.com/logkn/agents-go/internal/types"
 )
 
-func JSONSchema(obj types.Struct) map[string]any {
+// GenerateSchema generates a JSON schema for the given struct type.
+//
+// Top-level fields are:
+//   - type: "object"
+//   - properties: a map of field names to their schemas
+//   - required: a list of required field names
+//
+// The function handles nested structs, arrays, maps, and basic types.
+func GenerateSchema(obj any) map[string]any {
 	objType := reflect.TypeOf(obj)
 
 	// Handle pointer types
@@ -14,12 +20,62 @@ func JSONSchema(obj types.Struct) map[string]any {
 		objType = objType.Elem()
 	}
 
+	return buildTypeSchema(objType)
+}
+
+func buildTypeSchema(t reflect.Type) map[string]any {
+	switch t.Kind() {
+	case reflect.String:
+		return map[string]any{"type": "string"}
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return map[string]any{"type": "integer"}
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return map[string]any{"type": "integer", "minimum": 0}
+	case reflect.Float32, reflect.Float64:
+		return map[string]any{"type": "number"}
+	case reflect.Bool:
+		return map[string]any{"type": "boolean"}
+	case reflect.Slice, reflect.Array:
+		schema := map[string]any{
+			"type": "array",
+		}
+		// Add items schema for array elements
+		elemSchema := buildTypeSchema(t.Elem())
+		schema["items"] = elemSchema
+		return schema
+	case reflect.Map:
+		schema := map[string]any{
+			"type": "object",
+		}
+		// Add additionalProperties schema for map values
+		if t.Elem().Kind() != reflect.Interface {
+			valueSchema := buildTypeSchema(t.Elem())
+			schema["additionalProperties"] = valueSchema
+		} else {
+			schema["additionalProperties"] = true
+		}
+		return schema
+	case reflect.Struct:
+		return buildStructSchema(t)
+	case reflect.Ptr:
+		// Handle pointer to types
+		return buildTypeSchema(t.Elem())
+	case reflect.Interface:
+		// For interface{} types, allow any type
+		return map[string]any{}
+	default:
+		// Fallback for unknown types
+		return map[string]any{"type": "string"}
+	}
+}
+
+func buildStructSchema(t reflect.Type) map[string]any {
 	properties := make(map[string]any)
 	required := []string{}
 
 	// Iterate through struct fields
-	for i := range objType.NumField() {
-		field := objType.Field(i)
+	for i := range t.NumField() {
+		field := t.Field(i)
 
 		// Skip unexported fields
 		if !field.IsExported() {
@@ -33,35 +89,15 @@ func JSONSchema(obj types.Struct) map[string]any {
 
 		// Parse json tag (handle "fieldname,omitempty" format)
 		fieldName := jsonTag
-		if commaIdx := len(jsonTag); commaIdx > 0 {
-			for j, r := range jsonTag {
-				if r == ',' {
-					fieldName = jsonTag[:j]
-					break
-				}
-			}
+		isOptional := false
+		if commaIdx := findCommaIndex(jsonTag); commaIdx != -1 {
+			fieldName = jsonTag[:commaIdx]
+			tagOptions := jsonTag[commaIdx+1:]
+			isOptional = contains(tagOptions, "omitempty")
 		}
 
-		// Build field schema
-		fieldSchema := make(map[string]any)
-
-		// Add type based on Go type
-		switch field.Type.Kind() {
-		case reflect.String:
-			fieldSchema["type"] = "string"
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			fieldSchema["type"] = "integer"
-		case reflect.Float32, reflect.Float64:
-			fieldSchema["type"] = "number"
-		case reflect.Bool:
-			fieldSchema["type"] = "boolean"
-		case reflect.Slice:
-			fieldSchema["type"] = "array"
-		case reflect.Map, reflect.Struct:
-			fieldSchema["type"] = "object"
-		default:
-			fieldSchema["type"] = "string"
-		}
+		// Build field schema - recursively handle nested types
+		fieldSchema := buildTypeSchema(field.Type)
 
 		// Add description from tag
 		if desc := field.Tag.Get("description"); desc != "" {
@@ -70,8 +106,8 @@ func JSONSchema(obj types.Struct) map[string]any {
 
 		properties[fieldName] = fieldSchema
 
-		// Check if field is required (no omitempty tag)
-		if !contains(jsonTag, "omitempty") {
+		// Add to required if not optional
+		if !isOptional {
 			required = append(required, fieldName)
 		}
 	}
@@ -86,6 +122,15 @@ func JSONSchema(obj types.Struct) map[string]any {
 	}
 
 	return schema
+}
+
+func findCommaIndex(s string) int {
+	for i, r := range s {
+		if r == ',' {
+			return i
+		}
+	}
+	return -1
 }
 
 func contains(s, substr string) bool {

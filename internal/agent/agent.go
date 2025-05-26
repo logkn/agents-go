@@ -2,6 +2,7 @@ package agent
 
 import (
 	"github.com/logkn/agents-go/internal/events"
+	"github.com/logkn/agents-go/internal/llm"
 	"github.com/logkn/agents-go/internal/tools"
 )
 
@@ -36,7 +37,7 @@ type Hooks struct {
 type Agent struct {
 	Name         string
 	Instructions string
-	Model        Model
+	Model        llm.Model
 	Tools        []tools.Tool
 	Handoffs     []handoff
 	Hooks        Hooks

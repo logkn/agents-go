@@ -12,5 +12,5 @@ type LLMResponse struct {
 }
 
 type LLM interface {
-	Run(instructions string, messages []types.Message, tools []tools.Tool, responseFormat types.Struct) chan LLMResponse
+	Run(instructions string, messages []types.Message, tools []tools.Tool, responseFormat types.ResponseFormat) chan LLMResponse
 }
