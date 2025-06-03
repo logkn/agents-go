@@ -33,7 +33,11 @@ var agent = agents.Agent{
 
 func RunAgent() {
 	input := "What are the classes in Daggerheart?"
-	agentResponse := runner.Run(agent, input)
+	agentResponse, err := runner.Run(agent, input)
+	if err != nil {
+		fmt.Println("Error running agent:", err)
+		return
+	}
 
 	for event := range agentResponse.Stream() {
 		if msg, ok := event.Message(); ok {

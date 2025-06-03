@@ -122,7 +122,7 @@ func (ar *AgentResponse) FinalConversation() []types.Message {
 	return finalMessages
 }
 
-func Run(agent agents.Agent, input string) AgentResponse {
+func Run(agent agents.Agent, input string) (AgentResponse, error) {
 	message := input
 	messages := []types.Message{
 		types.NewSystemMessage(agent.Instructions),
@@ -139,8 +139,7 @@ func Run(agent agents.Agent, input string) AgentResponse {
 	}
 	// check that the model exists
 	if _, err := client.Models.Get(context.TODO(), agent.Model.Model); err != nil {
-		fmt.Printf("Error getting model %s: %v\n", agent.Model.Model, err)
-		return *newAgentResponse(nil, messages)
+		return AgentResponse{}, err
 	}
 
 	openAITools := make([]openai.ChatCompletionToolParam, len(agent.Tools))
@@ -212,5 +211,5 @@ func Run(agent agents.Agent, input string) AgentResponse {
 		close(eventChannel)
 	}()
 
-	return *agentResponse
+	return *agentResponse, nil
 }
