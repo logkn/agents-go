@@ -32,124 +32,84 @@ func ToolCallFromOpenAI(call openai.ChatCompletionMessageToolCall) ToolCall {
 	}
 }
 
-type UserMessage struct {
-	Content string
-	Name    string
-}
-
-func (m UserMessage) ToOpenAI() openai.ChatCompletionMessageParamUnion {
-	msg := openai.UserMessage(m.Content)
-	msg.OfUser.Name = openai.String(m.Name)
-	return msg
-}
-
-type AssistantMessage struct {
-	Content   string
-	ToolCalls []ToolCall
-	Name      string
-}
-
-func (m AssistantMessage) ToOpenAI() openai.ChatCompletionMessageParamUnion {
-	msg := openai.AssistantMessage(m.Content)
-	msg.OfAssistant.Name = openai.String(m.Name)
-	openAIToolCalls := utils.MapSlice(m.ToolCalls, ToolCall.ToOpenAI)
-	msg.OfAssistant.ToolCalls = openAIToolCalls
-	return msg
-}
-
-func AssistantMessageFromOpenAI(msg openai.ChatCompletionMessage, name string) Message {
-	toolCalls := utils.MapSlice(msg.ToolCalls, ToolCallFromOpenAI)
-	ourmessage := NewAssistantMessage(
-		msg.Content,
-		name,
-		toolCalls,
-	)
-	return ourmessage
-}
-
-type SystemMessage struct {
-	Content string
-}
-
-func (m SystemMessage) ToOpenAI() openai.ChatCompletionMessageParamUnion {
-	msg := openai.SystemMessage(m.Content)
-	return msg
-}
-
-type ToolMessage struct {
-	ID      string
-	Content any
-}
-
-func (m ToolMessage) ToOpenAI() openai.ChatCompletionMessageParamUnion {
-	log.Println("Converting ToolMessage to OpenAI format:", m)
-	return openai.ChatCompletionMessageParamUnion{
-		OfTool: &openai.ChatCompletionToolMessageParam{
-			Content: openai.ChatCompletionToolMessageParamContentUnion{
-				OfString: openai.String(utils.AsString(m.Content)),
-			},
-			ToolCallID: m.ID,
-		},
-	}
-}
-
 type Message struct {
-	Role Role
-	UserMessage
-	AssistantMessage
-	SystemMessage
-	ToolMessage
+	Role      Role       `json:"role"`
+	Content   string     `json:"content,omitempty"`
+	Name      string     `json:"name,omitempty"`
+	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
+	ID        string     `json:"id,omitempty"` // for tool messages
 }
 
 func (m Message) ToOpenAI() openai.ChatCompletionMessageParamUnion {
 	switch m.Role {
 	case User:
-		return m.UserMessage.ToOpenAI()
+		msg := openai.UserMessage(m.Content)
+		if m.Name != "" {
+			msg.OfUser.Name = openai.String(m.Name)
+		}
+		return msg
 	case Assistant:
-		return m.AssistantMessage.ToOpenAI()
+		msg := openai.AssistantMessage(m.Content)
+		if m.Name != "" {
+			msg.OfAssistant.Name = openai.String(m.Name)
+		}
+		if len(m.ToolCalls) > 0 {
+			openAIToolCalls := utils.MapSlice(m.ToolCalls, ToolCall.ToOpenAI)
+			msg.OfAssistant.ToolCalls = openAIToolCalls
+		}
+		return msg
 	case System:
-		return m.SystemMessage.ToOpenAI()
+		return openai.SystemMessage(m.Content)
 	case Tool:
-		return m.ToolMessage.ToOpenAI()
+		log.Println("Converting ToolMessage to OpenAI format:", m)
+		return openai.ChatCompletionMessageParamUnion{
+			OfTool: &openai.ChatCompletionToolMessageParam{
+				Content: openai.ChatCompletionToolMessageParamContentUnion{
+					OfString: openai.String(utils.AsString(m.Content)),
+				},
+				ToolCallID: m.ID,
+			},
+		}
 	}
 	return openai.ChatCompletionMessageParamUnion{}
 }
 
 func NewUserMessage(content string) Message {
 	return Message{
-		Role: User,
-		UserMessage: UserMessage{
-			Content: content,
-		},
+		Role:    User,
+		Content: content,
 	}
 }
 
 func NewAssistantMessage(content, name string, toolcalls []ToolCall) Message {
 	return Message{
-		Role: Assistant,
-		AssistantMessage: AssistantMessage{
-			Content:   content,
-			ToolCalls: toolcalls,
-			Name:      name,
-		},
+		Role:      Assistant,
+		Content:   content,
+		Name:      name,
+		ToolCalls: toolcalls,
 	}
 }
 
 func NewSystemMessage(content string) Message {
 	return Message{
-		Role: System,
-		SystemMessage: SystemMessage{
-			Content: content,
-		},
+		Role:    System,
+		Content: content,
 	}
 }
 
 func NewToolMessage(id string, content any) Message {
 	return Message{
-		Role: Tool,
-		ToolMessage: ToolMessage{
-			ID:      id,
-			Content: content,
-		},
+		Role:    Tool,
+		ID:      id,
+		Content: utils.AsString(content),
 	}
+}
+
+func AssistantMessageFromOpenAI(msg openai.ChatCompletionMessage, name string) Message {
+	toolCalls := utils.MapSlice(msg.ToolCalls, ToolCallFromOpenAI)
+	return NewAssistantMessage(
+		msg.Content,
+		name,
+		toolCalls,
+	)
 }
