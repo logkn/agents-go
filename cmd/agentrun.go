@@ -1,0 +1,43 @@
+package main
+
+import (
+	"fmt"
+
+	"github.com/logkn/agents-go/internal/runner"
+	"github.com/logkn/agents-go/internal/utils"
+	agents "github.com/logkn/agents-go/pkg"
+	"github.com/logkn/agents-go/tools"
+)
+
+type SearchWeb struct {
+	// The query to search for
+	Query string
+}
+
+func (s SearchWeb) Run() any {
+	// Simulate a search operation
+	// In a real implementation, this would perform an actual search
+	return "There are two classes in Daggerheart: the Warrior and the Mage."
+}
+
+var SearchTool = tools.Tool{
+	Args: SearchWeb{},
+}
+
+var agent = agents.Agent{
+	Name:         "Main Agent",
+	Instructions: "You are a helpful assistant. Use the tools provided to answer questions.",
+	Tools:        []tools.Tool{SearchTool},
+	Model:        agents.ModelConfig{Model: "qwen3:30b-a3b", BaseUrl: "http://localhost:11434/v1"},
+}
+
+func RunAgent() {
+	input := "What are the classes in Daggerheart?"
+	agentResponse := runner.Run(agent, input)
+
+	for event := range agentResponse.Stream() {
+		if msg, ok := event.Message(); ok {
+			fmt.Println("Message:", utils.JsonDumpsObj(msg))
+		}
+	}
+}
