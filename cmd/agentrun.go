@@ -2,9 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log/slog"
-	"os"
-	"strings"
 
 	"github.com/logkn/agents-go/internal/runner"
 	"github.com/logkn/agents-go/internal/utils"
@@ -38,26 +35,8 @@ var agent = agents.Agent{
 
 // RunAgent demonstrates running a simple agent with one tool.
 func RunAgent() {
-	// Configure logging level from environment variable or default to INFO
-	logLevel := slog.LevelInfo
-	if level := os.Getenv("LOG_LEVEL"); level != "" {
-		switch strings.ToUpper(level) {
-		case "DEBUG":
-			logLevel = slog.LevelDebug
-		case "WARN":
-			logLevel = slog.LevelWarn
-		case "ERROR":
-			logLevel = slog.LevelError
-		}
-	}
-	
-	// Create a structured logger
-	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: logLevel,
-	}))
-	
-	// Set the agent's logger
-	agent.Logger = logger
+	// Set up structured logging
+	agent.Logger = utils.SetupLogger()
 	
 	input := "What are the classes in Daggerheart?"
 	agentResponse, err := runner.Run(agent, runner.Input{OfString: input})

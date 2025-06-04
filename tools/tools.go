@@ -65,8 +65,11 @@ func (t Tool) RunOnArgs(args string) any {
 			"tool_name", t.CompleteName(), 
 			"args", args, 
 			"error", err)
-		fmt.Println("Error unmarshalling function arguments:", err)
-		return fmt.Sprintf("Error unmarshalling arguments: %v", err)
+		return map[string]interface{}{
+			"error": fmt.Sprintf("Failed to unmarshal tool arguments: %v", err),
+			"tool":  t.CompleteName(),
+			"args":  args,
+		}
 	}
 	
 	slog.Debug("executing tool", "tool_name", t.CompleteName())
