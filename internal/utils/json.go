@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// JsonDumps converts a map to a JSON string using the provided indent level.
 func JsonDumps(data map[string]any, indent int) string {
 	// Convert the map to JSON with indentation
 	indentString := ""
@@ -35,6 +36,7 @@ func JsonDumps(data map[string]any, indent int) string {
 	return result
 }
 
+// JsonDumpsObj converts any object to a pretty printed JSON string.
 func JsonDumpsObj(data any) string {
 	// Convert the object to JSON with indentation
 
@@ -58,6 +60,8 @@ func JsonDumpsObj(data any) string {
 	return result
 }
 
+// unescapeUnicode replaces unicode escape sequences with their actual
+// characters.
 func unescapeUnicode(s string) string {
 	var result strings.Builder
 	for i := 0; i < len(s); i++ {

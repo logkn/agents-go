@@ -12,12 +12,17 @@ import (
 	"github.com/openai/openai-go/option"
 )
 
+// ToolResult represents the output of a tool call executed by an agent.
+// Name is the tool's name, Content is the returned value and ToolCallID is the
+// identifier associated with the call.
 type ToolResult struct {
 	Name       string
 	Content    any
 	ToolCallID string
 }
 
+// AgentEvent is a generic event emitted during a run. Only one of the fields is
+// typically populated depending on what occurred.
 type AgentEvent struct {
 	Timestamp    time.Time
 	OfToken      string
@@ -26,10 +31,12 @@ type AgentEvent struct {
 	OfError      error
 }
 
+// Token returns the token contained in the event if present.
 func (e *AgentEvent) Token() (string, bool) {
 	return e.OfToken, e.OfToken != ""
 }
 
+// Message returns the message contained in the event if present.
 func (e *AgentEvent) Message() (*types.Message, bool) {
 	if e.OfMessage != nil {
 		return e.OfMessage, true
@@ -37,6 +44,7 @@ func (e *AgentEvent) Message() (*types.Message, bool) {
 	return nil, false
 }
 
+// ToolResult returns the tool output carried by the event if present.
 func (e *AgentEvent) ToolResult() (ToolResult, bool) {
 	if e.OfToolResult.Name != "" {
 		return e.OfToolResult, true
@@ -44,6 +52,7 @@ func (e *AgentEvent) ToolResult() (ToolResult, bool) {
 	return ToolResult{}, false
 }
 
+// Error returns the error stored in the event if any.
 func (e *AgentEvent) Error() (error, bool) {
 	if e.OfError != nil {
 		return e.OfError, true
@@ -51,6 +60,7 @@ func (e *AgentEvent) Error() (error, bool) {
 	return nil, false
 }
 
+// tokenEvent creates a new AgentEvent containing a token.
 func tokenEvent(token string) AgentEvent {
 	return AgentEvent{
 		OfToken:   token,
@@ -58,6 +68,7 @@ func tokenEvent(token string) AgentEvent {
 	}
 }
 
+// messageEvent creates a new AgentEvent carrying a message.
 func messageEvent(message types.Message) AgentEvent {
 	return AgentEvent{
 		OfMessage: &message,
@@ -65,6 +76,7 @@ func messageEvent(message types.Message) AgentEvent {
 	}
 }
 
+// toolEvent creates a new AgentEvent for a tool result.
 func toolEvent(toolResult ToolResult) AgentEvent {
 	return AgentEvent{
 		OfToolResult: toolResult,
@@ -72,14 +84,17 @@ func toolEvent(toolResult ToolResult) AgentEvent {
 	}
 }
 
+// AgentResponse collects all events produced during a run and exposes helper
+// methods to access them.
 type AgentResponse struct {
-	// The event bus
+	// events is the internal event bus used during streaming.
 	events chan AgentEvent
-	// An accumulator of events
+	// pastEvents stores everything that has already been observed.
 	pastEvents   []AgentEvent
 	pastMessages []types.Message
 }
 
+// newAgentResponse creates an AgentResponse bound to the provided channel.
 func newAgentResponse(ch chan AgentEvent, pastMessages []types.Message) *AgentResponse {
 	return &AgentResponse{
 		events:       ch,
@@ -88,6 +103,8 @@ func newAgentResponse(ch chan AgentEvent, pastMessages []types.Message) *AgentRe
 	}
 }
 
+// Stream returns a channel that yields events in real time while also
+// accumulating them for later retrieval.
 func (ar *AgentResponse) Stream() <-chan AgentEvent {
 	outchan := make(chan AgentEvent, 10)
 	go func() {
@@ -100,12 +117,13 @@ func (ar *AgentResponse) Stream() <-chan AgentEvent {
 	return outchan
 }
 
+// waitForStreamCompletion drains the event stream until it closes.
 func (ar *AgentResponse) waitForStreamCompletion() {
-	// Wait for the stream to complete
 	for range ar.Stream() {
 	}
 }
 
+// Response returns the last message produced in the conversation.
 func (ar *AgentResponse) Response() types.Message {
 	allMessages := ar.FinalConversation()
 	lastMessage := allMessages[len(allMessages)-1]
@@ -113,6 +131,8 @@ func (ar *AgentResponse) Response() types.Message {
 	return lastMessage
 }
 
+// FinalConversation waits for streaming to finish and returns every message
+// that occurred during the run.
 func (ar *AgentResponse) FinalConversation() []types.Message {
 	ar.waitForStreamCompletion()
 	finalMessages := make([]types.Message, 0, len(ar.pastMessages)+len(ar.pastEvents))
@@ -120,6 +140,8 @@ func (ar *AgentResponse) FinalConversation() []types.Message {
 	return finalMessages
 }
 
+// Run executes the agent against the provided input and returns an
+// AgentResponse for consuming the results.
 func Run(agent agents.Agent, input string) (AgentResponse, error) {
 	message := input
 	messages := []types.Message{

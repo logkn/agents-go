@@ -9,11 +9,13 @@ import (
 	"github.com/logkn/agents-go/tools"
 )
 
+// SearchWeb represents arguments for the search tool example.
 type SearchWeb struct {
 	// The query to search for
 	Query string
 }
 
+// Run performs the mock web search and returns a hard coded result.
 func (s SearchWeb) Run() any {
 	// Simulate a search operation
 	// In a real implementation, this would perform an actual search
@@ -31,6 +33,7 @@ var agent = agents.Agent{
 	Model:        agents.ModelConfig{Model: "r1-qwen3", BaseUrl: "http://localhost:8080/v1"},
 }
 
+// RunAgent demonstrates running a simple agent with one tool.
 func RunAgent() {
 	input := "What are the classes in Daggerheart?"
 	agentResponse, err := runner.Run(agent, input)

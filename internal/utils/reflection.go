@@ -6,6 +6,7 @@ import (
 	"reflect"
 )
 
+// TypeName returns the underlying name of the provided value's type.
 func TypeName(v any) string {
 	if v == nil {
 		return "nil"
@@ -20,6 +21,7 @@ func TypeName(v any) string {
 	return t.Name()
 }
 
+// NewInstance creates a new zero-initialized instance of v's type.
 func NewInstance(v any) any {
 	t := reflect.TypeOf(v)
 	if t.Kind() == reflect.Ptr {
@@ -28,6 +30,8 @@ func NewInstance(v any) any {
 	return reflect.New(t).Interface()
 }
 
+// AsString converts a value to a human-readable string using JSON when
+// appropriate.
 func AsString(v any) string {
 	if v == nil {
 		return "nil"
