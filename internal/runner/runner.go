@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/logkn/agents-go/internal/types"
@@ -105,7 +104,6 @@ func (ar *AgentResponse) waitForStreamCompletion() {
 	// Wait for the stream to complete
 	for range ar.Stream() {
 	}
-	fmt.Println("Waited for stream completion")
 }
 
 func (ar *AgentResponse) Response() types.Message {
@@ -128,6 +126,9 @@ func Run(agent agents.Agent, input string) (AgentResponse, error) {
 		types.NewSystemMessage(agent.Instructions),
 		types.NewUserMessage(message),
 	}
+	for _, msg := range messages {
+		fmt.Println(utils.JsonDumpsObj(msg))
+	}
 
 	var client openai.Client
 	if agent.Model.BaseUrl != "" {
@@ -138,9 +139,9 @@ func Run(agent agents.Agent, input string) (AgentResponse, error) {
 		client = openai.NewClient()
 	}
 	// check that the model exists
-	if _, err := client.Models.Get(context.TODO(), agent.Model.Model); err != nil {
-		return AgentResponse{}, err
-	}
+	// if _, err := client.Models.Get(context.TODO(), agent.Model.Model); err != nil {
+	// 	return AgentResponse{}, err
+	// }
 
 	openAITools := make([]openai.ChatCompletionToolParam, len(agent.Tools))
 	for i, tool := range agent.Tools {
@@ -153,7 +154,6 @@ func Run(agent agents.Agent, input string) (AgentResponse, error) {
 	go func() {
 		for {
 			openaiMessages := utils.MapSlice(messages, types.Message.ToOpenAI)
-			fmt.Println(utils.AsString(openaiMessages))
 			params := openai.ChatCompletionNewParams{
 				Messages: openaiMessages,
 				Model:    agent.Model.Model,
@@ -173,13 +173,10 @@ func Run(agent agents.Agent, input string) (AgentResponse, error) {
 			choices := acc.Choices
 			// if no choices, break the loop
 			if len(choices) == 0 {
-				fmt.Println("No choices in the stream, breaking the loop")
 				break
 			}
 			openaimsg := choices[0].Message
-			log.Println("OpenAI message:", utils.JsonDumpsObj(openaimsg))
 			msg := types.AssistantMessageFromOpenAI(openaimsg, agent.Name)
-			log.Println("Converted message:", utils.JsonDumpsObj(msg))
 			messages = append(messages, msg)
 
 			eventChannel <- messageEvent(msg)
@@ -198,6 +195,7 @@ func Run(agent agents.Agent, input string) (AgentResponse, error) {
 						result := tool.RunOnArgs(toolcall.Args)
 						toolmessage := types.NewToolMessage(toolcall.ID, result)
 						messages = append(messages, toolmessage)
+						eventChannel <- messageEvent(toolmessage)
 						eventChannel <- toolEvent(ToolResult{
 							Name:       tool.CompleteName(),
 							Content:    result,

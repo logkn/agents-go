@@ -1,8 +1,6 @@
 package types
 
 import (
-	"log"
-
 	"github.com/logkn/agents-go/internal/utils"
 	"github.com/openai/openai-go"
 )
@@ -61,7 +59,6 @@ func (m Message) ToOpenAI() openai.ChatCompletionMessageParamUnion {
 	case System:
 		return openai.SystemMessage(m.Content)
 	case Tool:
-		log.Println("Converting ToolMessage to OpenAI format:", m)
 		return openai.ChatCompletionMessageParamUnion{
 			OfTool: &openai.ChatCompletionToolMessageParam{
 				Content: openai.ChatCompletionToolMessageParamContentUnion{

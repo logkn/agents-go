@@ -28,7 +28,7 @@ var agent = agents.Agent{
 	Name:         "Main Agent",
 	Instructions: "You are a helpful assistant. Use the tools provided to answer questions.",
 	Tools:        []tools.Tool{SearchTool},
-	Model:        agents.ModelConfig{Model: "qwen3:30b-a3b", BaseUrl: "http://localhost:11434/v1"},
+	Model:        agents.ModelConfig{Model: "r1-qwen3", BaseUrl: "http://localhost:8080/v1"},
 }
 
 func RunAgent() {
