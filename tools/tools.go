@@ -9,16 +9,21 @@ import (
 	"github.com/stoewer/go-strcase"
 )
 
+// ToolArgs is implemented by a type that can execute a tool using its own
+// parameters.
 type ToolArgs interface {
 	Run() any
 }
 
+// Tool describes an executable function that can be invoked by an agent.
 type Tool struct {
 	Name        string
 	Description string
 	Args        ToolArgs
 }
 
+// CompleteName returns the explicit name if set or derives one from the
+// argument type.
 func (t Tool) CompleteName() string {
 	if t.Name != "" {
 		return t.Name
@@ -30,6 +35,7 @@ func (t Tool) CompleteName() string {
 	return strcase.SnakeCase(typeName)
 }
 
+// ToOpenAITool converts this tool into the format expected by the OpenAI SDK.
 func (t Tool) ToOpenAITool() openai.ChatCompletionToolParam {
 	schema, err := utils.CreateSchema(t.Args)
 	if err != nil {
@@ -45,6 +51,7 @@ func (t Tool) ToOpenAITool() openai.ChatCompletionToolParam {
 	}
 }
 
+// RunOnArgs unmarshals the provided JSON arguments and executes the tool.
 func (t Tool) RunOnArgs(args string) any {
 	argsInstance := utils.NewInstance(t.Args).(ToolArgs)
 	err := json.Unmarshal([]byte(args), argsInstance)

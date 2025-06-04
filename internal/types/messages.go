@@ -5,12 +5,14 @@ import (
 	"github.com/openai/openai-go"
 )
 
+// ToolCall represents an invocation of a tool by the language model.
 type ToolCall struct {
 	ID   string
 	Name string
 	Args string
 }
 
+// ToOpenAI converts the tool call into the OpenAI SDK representation.
 func (t ToolCall) ToOpenAI() openai.ChatCompletionMessageToolCallParam {
 	msg := openai.ChatCompletionMessageToolCallParam{
 		ID: t.ID,
@@ -22,6 +24,7 @@ func (t ToolCall) ToOpenAI() openai.ChatCompletionMessageToolCallParam {
 	return msg
 }
 
+// ToolCallFromOpenAI converts an OpenAI tool call into our internal type.
 func ToolCallFromOpenAI(call openai.ChatCompletionMessageToolCall) ToolCall {
 	return ToolCall{
 		ID:   call.ID,
@@ -30,6 +33,7 @@ func ToolCallFromOpenAI(call openai.ChatCompletionMessageToolCall) ToolCall {
 	}
 }
 
+// Message represents a single message in the conversation transcript.
 type Message struct {
 	Role      Role       `json:"role"`
 	Content   string     `json:"content,omitempty"`
@@ -38,6 +42,7 @@ type Message struct {
 	ID        string     `json:"id,omitempty"` // for tool messages
 }
 
+// ToOpenAI converts the message into the OpenAI SDK representation.
 func (m Message) ToOpenAI() openai.ChatCompletionMessageParamUnion {
 	switch m.Role {
 	case User:
@@ -71,6 +76,7 @@ func (m Message) ToOpenAI() openai.ChatCompletionMessageParamUnion {
 	return openai.ChatCompletionMessageParamUnion{}
 }
 
+// NewUserMessage creates a user message with the provided content.
 func NewUserMessage(content string) Message {
 	return Message{
 		Role:    User,
@@ -78,6 +84,7 @@ func NewUserMessage(content string) Message {
 	}
 }
 
+// NewAssistantMessage constructs an assistant message with optional tool calls.
 func NewAssistantMessage(content, name string, toolcalls []ToolCall) Message {
 	return Message{
 		Role:      Assistant,
@@ -87,6 +94,7 @@ func NewAssistantMessage(content, name string, toolcalls []ToolCall) Message {
 	}
 }
 
+// NewSystemMessage creates a system message with the given content.
 func NewSystemMessage(content string) Message {
 	return Message{
 		Role:    System,
@@ -94,6 +102,7 @@ func NewSystemMessage(content string) Message {
 	}
 }
 
+// NewToolMessage creates a message that captures the output of a tool.
 func NewToolMessage(id string, content any) Message {
 	return Message{
 		Role:    Tool,
@@ -102,6 +111,7 @@ func NewToolMessage(id string, content any) Message {
 	}
 }
 
+// AssistantMessageFromOpenAI converts an OpenAI assistant message into our internal structure.
 func AssistantMessageFromOpenAI(msg openai.ChatCompletionMessage, name string) Message {
 	toolCalls := utils.MapSlice(msg.ToolCalls, ToolCallFromOpenAI)
 	return NewAssistantMessage(

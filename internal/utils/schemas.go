@@ -17,9 +17,8 @@ import (
 	"github.com/stoewer/go-strcase"
 )
 
-// CreateSchema generates a JSON schema from any Go data structure,
-// automatically detecting the module path and source location to include
-// Go comments as descriptions in the schema.
+// CreateSchema generates a JSON schema from any Go value. It automatically
+// attempts to include Go comments from the source as field descriptions.
 func CreateSchema(dataStructure any) (map[string]any, error) {
 	// Get the type information
 	t := reflect.TypeOf(dataStructure)
@@ -69,8 +68,8 @@ func CreateSchema(dataStructure any) (map[string]any, error) {
 	return result, nil
 }
 
-// addGoCommentsAuto automatically detects the module path and source directory
-// for the given type and adds Go comments to the reflector.
+// addGoCommentsAuto attempts to locate the source of the provided type and add
+// Go comments to the JSON schema reflector so they appear in the schema output.
 func addGoCommentsAuto(r *jsonschema.Reflector, t reflect.Type) error {
 	// Get the package path from reflection
 	pkgPath := t.PkgPath()
@@ -139,8 +138,8 @@ func addGoCommentsAuto(r *jsonschema.Reflector, t reflect.Type) error {
 	return nil
 }
 
-// findSourceDirectory finds the actual filesystem directory containing the source
-// code for the given package path.
+// findSourceDirectory returns the filesystem directory for the specified
+// package path.
 func findSourceDirectory(pkgPath string) (string, error) {
 	// Try using build.Import first
 	pkg, err := build.Import(pkgPath, "", build.FindOnly)
@@ -168,8 +167,8 @@ func findSourceDirectory(pkgPath string) (string, error) {
 	return sourceDir, nil
 }
 
-// findModuleInfo finds the module root directory and module name for a given package path.
-// It works by walking up the directory tree looking for go.mod files.
+// findModuleInfo walks up the directory tree looking for a go.mod and returns
+// the module root and module name.
 func findModuleInfo(pkgPath string) (moduleRoot, moduleName string, err error) {
 	// Try to find the package in GOPATH or module cache first
 	pkg, err := build.Import(pkgPath, "", build.FindOnly)
@@ -206,8 +205,8 @@ func findModuleInfo(pkgPath string) (moduleRoot, moduleName string, err error) {
 	return "", "", fmt.Errorf("no go.mod found in any parent directory of %s", pkg.Dir)
 }
 
-// findModuleInfoFromRuntime uses runtime information to find module info
-// when build.Import fails (e.g., for embedded packages or special cases).
+// findModuleInfoFromRuntime attempts to determine module information based on
+// the current working directory when build.Import fails.
 func findModuleInfoFromRuntime(pkgPath string) (string, string, error) {
 	// Get the current working directory
 	wd, err := os.Getwd()
@@ -243,7 +242,8 @@ func findModuleInfoFromRuntime(pkgPath string) (string, string, error) {
 	return findModuleInfoWithGoList()
 }
 
-// findModuleInfoWithGoList uses 'go list' command to find module information.
+// findModuleInfoWithGoList uses the 'go list' command to discover module
+// information when other methods fail.
 func findModuleInfoWithGoList() (string, string, error) {
 	// Get module root
 
@@ -266,9 +266,8 @@ func findModuleInfoWithGoList() (string, string, error) {
 	return moduleRoot, moduleName, nil
 }
 
-// findStructDefinitionInMain finds the exact file and line where a struct is defined
-// within the main package using AST parsing. This solves the issue where the main
-// package doesn't have a predictable directory structure.
+// findStructDefinitionInMain locates the file containing the definition of the
+// given struct within the main package using AST parsing.
 func findStructDefinitionInMain(typeName string) (string, error) {
 	// Get current working directory
 	cwd, err := os.Getwd()
@@ -334,7 +333,7 @@ func findStructDefinitionInMain(typeName string) (string, error) {
 	return "", fmt.Errorf("struct %s not found in main package", typeName)
 }
 
-// readModuleName reads the module name from a go.mod file.
+// readModuleName extracts the module name from a go.mod file.
 func readModuleName(goModPath string) (string, error) {
 	content, err := os.ReadFile(goModPath)
 	if err != nil {
