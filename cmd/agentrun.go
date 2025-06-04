@@ -36,7 +36,7 @@ var agent = agents.Agent{
 // RunAgent demonstrates running a simple agent with one tool.
 func RunAgent() {
 	input := "What are the classes in Daggerheart?"
-	agentResponse, err := runner.Run(agent, input)
+	agentResponse, err := runner.Run(agent, runner.Input{OfString: input})
 	if err != nil {
 		fmt.Println("Error running agent:", err)
 		return

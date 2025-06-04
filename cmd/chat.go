@@ -8,8 +8,6 @@ import (
 
 	"github.com/logkn/agents-go/internal/runner"
 	"github.com/logkn/agents-go/internal/types"
-	agents "github.com/logkn/agents-go/pkg"
-	"github.com/logkn/agents-go/tools"
 )
 
 // RunChat starts an interactive session with the agent allowing multiple turns.
@@ -34,7 +32,7 @@ func RunChat() {
 		}
 
 		conversation = append(conversation, types.NewUserMessage(input))
-		resp, err := runner.RunConversation(agent, conversation)
+		resp, err := runner.Run(agent, runner.Input{OfMessages: conversation})
 		if err != nil {
 			fmt.Println("Error running agent:", err)
 			return
