@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/logkn/agents-go/internal/types"
@@ -154,23 +155,38 @@ func (ar *AgentResponse) FinalConversation() []types.Message {
 // history. Otherwise a new conversation is started with input.OfString as the
 // user prompt.
 func Run(agent types.Agent, input Input) (AgentResponse, error) {
+	logger := agent.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+	
+	logger.Info("starting agent run",
+		"agent_name", agent.Name,
+		"model", agent.Model.Model,
+		"num_tools", len(agent.Tools),
+		"has_existing_messages", len(input.OfMessages) > 0)
+
 	var messages []types.Message
 	switch {
 	case len(input.OfMessages) > 0:
 		messages = input.OfMessages
+		logger.Debug("using existing conversation", "message_count", len(input.OfMessages))
 	default:
 		messages = []types.Message{
 			types.NewSystemMessage(agent.Instructions),
 			types.NewUserMessage(input.OfString),
 		}
+		logger.Debug("starting new conversation", "user_prompt", input.OfString)
 	}
 
 	var client openai.Client
 	if agent.Model.BaseUrl != "" {
+		logger.Debug("using custom base URL", "base_url", agent.Model.BaseUrl)
 		client = openai.NewClient(
 			option.WithBaseURL(agent.Model.BaseUrl),
 		)
 	} else {
+		logger.Debug("using OpenAI API")
 		client = openai.NewClient()
 	}
 	// check that the model exists
@@ -188,6 +204,7 @@ func Run(agent types.Agent, input Input) (AgentResponse, error) {
 
 	go func() {
 		for {
+			logger.Debug("sending request to LLM", "message_count", len(messages))
 			openaiMessages := utils.MapSlice(messages, types.Message.ToOpenAI)
 			params := openai.ChatCompletionNewParams{
 				Messages: openaiMessages,
@@ -196,18 +213,24 @@ func Run(agent types.Agent, input Input) (AgentResponse, error) {
 			}
 			stream := client.Chat.Completions.NewStreaming(context.TODO(), params)
 			acc := openai.ChatCompletionAccumulator{}
+			tokenCount := 0
 			for stream.Next() {
 				chunk := stream.Current()
 				acc.AddChunk(chunk)
 
 				if len(chunk.Choices) > 0 {
 					token := chunk.Choices[0].Delta.Content
+					if token != "" {
+						tokenCount++
+					}
 					eventChannel <- tokenEvent(token)
 				}
 			}
+			logger.Debug("received response from LLM", "tokens_received", tokenCount)
 			choices := acc.Choices
 			// if no choices, break the loop
 			if len(choices) == 0 {
+				logger.Debug("no choices returned from LLM, ending conversation")
 				break
 			}
 			openaimsg := choices[0].Message
@@ -219,15 +242,29 @@ func Run(agent types.Agent, input Input) (AgentResponse, error) {
 			toolcalls := msg.ToolCalls
 
 			if len(toolcalls) == 0 {
+				logger.Info("assistant response completed", "content_length", len(msg.Content))
 				break
 			}
 
+			logger.Info("processing tool calls", "tool_call_count", len(toolcalls))
+
 			for _, toolcall := range toolcalls {
 				funcname := toolcall.Name
+				logger.Debug("executing tool", 
+					"tool_name", funcname,
+					"tool_call_id", toolcall.ID,
+					"args_length", len(toolcall.Args))
+				
 				// get the tool by name
+				toolFound := false
 				for _, tool := range agent.Tools {
 					if tool.CompleteName() == funcname {
+						toolFound = true
 						result := tool.RunOnArgs(toolcall.Args)
+						logger.Info("tool execution completed",
+							"tool_name", funcname,
+							"tool_call_id", toolcall.ID)
+						
 						toolmessage := types.NewToolMessage(toolcall.ID, result)
 						messages = append(messages, toolmessage)
 						eventChannel <- messageEvent(toolmessage)
@@ -239,10 +276,14 @@ func Run(agent types.Agent, input Input) (AgentResponse, error) {
 						break
 					}
 				}
+				if !toolFound {
+					logger.Error("tool not found", "tool_name", funcname)
+				}
 			}
 		}
 		close(eventChannel)
 	}()
 
+	logger.Debug("agent run initiated successfully")
 	return *agentResponse, nil
 }

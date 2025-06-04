@@ -3,6 +3,7 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	"github.com/logkn/agents-go/internal/utils"
 	"github.com/openai/openai-go"
@@ -37,11 +38,14 @@ func (t Tool) CompleteName() string {
 
 // ToOpenAITool converts this tool into the format expected by the OpenAI SDK.
 func (t Tool) ToOpenAITool() openai.ChatCompletionToolParam {
+	slog.Debug("converting tool to OpenAI format", "tool_name", t.CompleteName())
 	schema, err := utils.CreateSchema(t.Args)
 	if err != nil {
+		slog.Error("failed to create schema for tool", "tool_name", t.CompleteName(), "error", err)
 		fmt.Println("Error creating schema for tool arguments:", err)
 		return openai.ChatCompletionToolParam{}
 	}
+	slog.Debug("tool schema created successfully", "tool_name", t.CompleteName())
 	return openai.ChatCompletionToolParam{
 		Function: openai.FunctionDefinitionParam{
 			Name:        t.CompleteName(),
@@ -53,10 +57,23 @@ func (t Tool) ToOpenAITool() openai.ChatCompletionToolParam {
 
 // RunOnArgs unmarshals the provided JSON arguments and executes the tool.
 func (t Tool) RunOnArgs(args string) any {
+	slog.Debug("unmarshaling tool arguments", "tool_name", t.CompleteName(), "args", args)
 	argsInstance := utils.NewInstance(t.Args).(ToolArgs)
 	err := json.Unmarshal([]byte(args), argsInstance)
 	if err != nil {
-		fmt.Println("Error unmarshalling function arguments:", err)
+		slog.Error("failed to unmarshal tool arguments", 
+			"tool_name", t.CompleteName(), 
+			"args", args, 
+			"error", err)
+		return map[string]interface{}{
+			"error": fmt.Sprintf("Failed to unmarshal tool arguments: %v", err),
+			"tool":  t.CompleteName(),
+			"args":  args,
+		}
 	}
-	return argsInstance.Run()
+	
+	slog.Debug("executing tool", "tool_name", t.CompleteName())
+	result := argsInstance.Run()
+	slog.Debug("tool execution completed", "tool_name", t.CompleteName())
+	return result
 }

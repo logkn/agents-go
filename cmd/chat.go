@@ -8,10 +8,14 @@ import (
 
 	"github.com/logkn/agents-go/internal/runner"
 	"github.com/logkn/agents-go/internal/types"
+	"github.com/logkn/agents-go/internal/utils"
 )
 
 // RunChat starts an interactive session with the agent allowing multiple turns.
 func RunChat() {
+	// Set up structured logging
+	agent.Logger = utils.SetupLogger()
+	
 	conversation := []types.Message{types.NewSystemMessage(agent.Instructions)}
 	reader := bufio.NewReader(os.Stdin)
 

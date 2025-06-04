@@ -1,6 +1,8 @@
 package types
 
 import (
+	"log/slog"
+
 	"github.com/logkn/agents-go/internal/utils"
 	"github.com/logkn/agents-go/tools"
 	"github.com/openai/openai-go"
@@ -139,4 +141,5 @@ type Agent struct {
 	Tools        []tools.Tool
 	Model        ModelConfig
 	Handoffs     []*Agent
+	Logger       *slog.Logger
 }
