@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -12,6 +13,27 @@ import (
 
 // RunChat starts an interactive session with the agent allowing multiple turns.
 func RunChat() {
+	// Configure logging level from environment variable or default to INFO
+	logLevel := slog.LevelInfo
+	if level := os.Getenv("LOG_LEVEL"); level != "" {
+		switch strings.ToUpper(level) {
+		case "DEBUG":
+			logLevel = slog.LevelDebug
+		case "WARN":
+			logLevel = slog.LevelWarn
+		case "ERROR":
+			logLevel = slog.LevelError
+		}
+	}
+	
+	// Create a structured logger that writes to stderr (so it doesn't interfere with chat output)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: logLevel,
+	}))
+	
+	// Set the agent's logger
+	agent.Logger = logger
+	
 	conversation := []types.Message{types.NewSystemMessage(agent.Instructions)}
 	reader := bufio.NewReader(os.Stdin)
 
