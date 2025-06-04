@@ -233,3 +233,81 @@ func Run(agent agents.Agent, input string) (AgentResponse, error) {
 
 	return *agentResponse, nil
 }
+
+// RunConversation executes the agent given an existing conversation history.
+// The provided messages should include the system prompt and any prior turns.
+// New assistant responses and tool outputs are streamed back through the returned
+// AgentResponse. The slice may be modified internally as the conversation
+// progresses, so callers should read the final history from the response.
+func RunConversation(agent agents.Agent, messages []types.Message) (AgentResponse, error) {
+	var client openai.Client
+	if agent.Model.BaseUrl != "" {
+		client = openai.NewClient(option.WithBaseURL(agent.Model.BaseUrl))
+	} else {
+		client = openai.NewClient()
+	}
+
+	openAITools := make([]openai.ChatCompletionToolParam, len(agent.Tools))
+	for i, tool := range agent.Tools {
+		openAITools[i] = tool.ToOpenAITool()
+	}
+
+	eventChannel := make(chan AgentEvent, 10)
+	agentResponse := newAgentResponse(eventChannel, messages)
+
+	go func() {
+		defer close(eventChannel)
+		for {
+			openaiMessages := utils.MapSlice(messages, types.Message.ToOpenAI)
+			params := openai.ChatCompletionNewParams{
+				Messages: openaiMessages,
+				Model:    agent.Model.Model,
+				Tools:    openAITools,
+			}
+			stream := client.Chat.Completions.NewStreaming(context.TODO(), params)
+			acc := openai.ChatCompletionAccumulator{}
+			for stream.Next() {
+				chunk := stream.Current()
+				acc.AddChunk(chunk)
+
+				if len(chunk.Choices) > 0 {
+					token := chunk.Choices[0].Delta.Content
+					eventChannel <- tokenEvent(token)
+				}
+			}
+			choices := acc.Choices
+			if len(choices) == 0 {
+				break
+			}
+			openaimsg := choices[0].Message
+			msg := types.AssistantMessageFromOpenAI(openaimsg, agent.Name)
+			messages = append(messages, msg)
+			eventChannel <- messageEvent(msg)
+
+			toolcalls := msg.ToolCalls
+			if len(toolcalls) == 0 {
+				break
+			}
+
+			for _, toolcall := range toolcalls {
+				funcname := toolcall.Name
+				for _, tool := range agent.Tools {
+					if tool.CompleteName() == funcname {
+						result := tool.RunOnArgs(toolcall.Args)
+						toolmessage := types.NewToolMessage(toolcall.ID, result)
+						messages = append(messages, toolmessage)
+						eventChannel <- messageEvent(toolmessage)
+						eventChannel <- toolEvent(ToolResult{
+							Name:       tool.CompleteName(),
+							Content:    result,
+							ToolCallID: toolcall.ID,
+						})
+						break
+					}
+				}
+			}
+		}
+	}()
+
+	return *agentResponse, nil
+}
