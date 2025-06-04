@@ -117,29 +117,6 @@ func (ar *AgentResponse) Stream() <-chan AgentEvent {
 	return outchan
 }
 
-// waitForStreamCompletion drains the event stream until it closes.
-func (ar *AgentResponse) waitForStreamCompletion() {
-	for range ar.Stream() {
-	}
-}
-
-// Response returns the last message produced in the conversation.
-func (ar *AgentResponse) Response() types.Message {
-	allMessages := ar.FinalConversation()
-	lastMessage := allMessages[len(allMessages)-1]
-
-	return lastMessage
-}
-
-// FinalConversation waits for streaming to finish and returns every message
-// that occurred during the run.
-func (ar *AgentResponse) FinalConversation() []types.Message {
-	ar.waitForStreamCompletion()
-	finalMessages := make([]types.Message, 0, len(ar.pastMessages)+len(ar.pastEvents))
-	finalMessages = append(finalMessages, ar.pastMessages...)
-	return finalMessages
-}
-
 // Run executes the agent against the provided input and returns an
 // AgentResponse for consuming the results.
 func Run(agent agents.Agent, input string) (AgentResponse, error) {

@@ -8,34 +8,6 @@ import (
 	"strings"
 )
 
-// JsonDumps converts a map to a JSON string using the provided indent level.
-func JsonDumps(data map[string]any, indent int) string {
-	// Convert the map to JSON with indentation
-	indentString := ""
-	for range indent {
-		indentString += " "
-	}
-
-	var buf bytes.Buffer
-	encoder := json.NewEncoder(&buf)
-	encoder.SetEscapeHTML(false)
-	encoder.SetIndent("", indentString)
-
-	err := encoder.Encode(data)
-	if err != nil {
-		panic(fmt.Sprintf("failed to marshal JSON: %v", err))
-	}
-	result := buf.String()
-	// Remove the trailing newline that Encode adds
-	if len(result) > 0 && result[len(result)-1] == '\n' {
-		result = result[:len(result)-1]
-	}
-
-	// Unescape unicode sequences
-	result = unescapeUnicode(result)
-	return result
-}
-
 // JsonDumpsObj converts any object to a pretty printed JSON string.
 func JsonDumpsObj(data any) string {
 	// Convert the object to JSON with indentation
