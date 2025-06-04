@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/logkn/agents-go/internal/types"
@@ -29,6 +28,15 @@ type AgentEvent struct {
 	OfMessage    *types.Message
 	OfToolResult ToolResult
 	OfError      error
+}
+
+// Input represents the starting data for a run. Exactly one field should be
+// populated.
+type Input struct {
+	// OfString initiates a new conversation with this user prompt.
+	OfString string
+	// OfMessages continues an existing conversation.
+	OfMessages []types.Message
 }
 
 // Token returns the token contained in the event if present.
@@ -142,14 +150,20 @@ func (ar *AgentResponse) FinalConversation() []types.Message {
 
 // Run executes the agent against the provided input and returns an
 // AgentResponse for consuming the results.
-func Run(agent agents.Agent, input string) (AgentResponse, error) {
-	message := input
-	messages := []types.Message{
-		types.NewSystemMessage(agent.Instructions),
-		types.NewUserMessage(message),
-	}
-	for _, msg := range messages {
-		fmt.Println(utils.JsonDumpsObj(msg))
+// Run executes the agent and streams events back through an AgentResponse.
+// If input.OfMessages is provided it is treated as the existing conversation
+// history. Otherwise a new conversation is started with input.OfString as the
+// user prompt.
+func Run(agent agents.Agent, input Input) (AgentResponse, error) {
+	var messages []types.Message
+	switch {
+	case len(input.OfMessages) > 0:
+		messages = input.OfMessages
+	default:
+		messages = []types.Message{
+			types.NewSystemMessage(agent.Instructions),
+			types.NewUserMessage(input.OfString),
+		}
 	}
 
 	var client openai.Client
