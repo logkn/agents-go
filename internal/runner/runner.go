@@ -6,7 +6,6 @@ import (
 
 	"github.com/logkn/agents-go/internal/types"
 	"github.com/logkn/agents-go/internal/utils"
-	agents "github.com/logkn/agents-go/pkg"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
 )
@@ -154,7 +153,7 @@ func (ar *AgentResponse) FinalConversation() []types.Message {
 // If input.OfMessages is provided it is treated as the existing conversation
 // history. Otherwise a new conversation is started with input.OfString as the
 // user prompt.
-func Run(agent agents.Agent, input Input) (AgentResponse, error) {
+func Run(agent types.Agent, input Input) (AgentResponse, error) {
 	var messages []types.Message
 	switch {
 	case len(input.OfMessages) > 0:
