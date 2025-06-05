@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -92,6 +93,13 @@ func toolEvent(toolResult ToolResult) AgentEvent {
 	}
 }
 
+func errorEvent(err error) AgentEvent {
+	return AgentEvent{
+		OfError:   err,
+		Timestamp: time.Now(),
+	}
+}
+
 // AgentResponse collects all events produced during a run and exposes helper
 // methods to access them.
 type AgentResponse struct {
@@ -159,7 +167,7 @@ func Run(agent types.Agent, input Input) (AgentResponse, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	
+
 	logger.Info("starting agent run",
 		"agent_name", agent.Name,
 		"model", agent.Model.Model,
@@ -234,6 +242,15 @@ func Run(agent types.Agent, input Input) (AgentResponse, error) {
 				break
 			}
 			openaimsg := choices[0].Message
+
+			// check for refusals
+			if openaimsg.Refusal != "" {
+				err := fmt.Errorf("LLM refusal: %s", openaimsg.Refusal)
+				logger.Error("LLM refused to respond", "refusal", openaimsg.Refusal)
+				eventChannel <- errorEvent(err)
+				return
+			}
+
 			msg := types.AssistantMessageFromOpenAI(openaimsg, agent.Name)
 			messages = append(messages, msg)
 
@@ -250,11 +267,11 @@ func Run(agent types.Agent, input Input) (AgentResponse, error) {
 
 			for _, toolcall := range toolcalls {
 				funcname := toolcall.Name
-				logger.Debug("executing tool", 
+				logger.Debug("executing tool",
 					"tool_name", funcname,
 					"tool_call_id", toolcall.ID,
 					"args_length", len(toolcall.Args))
-				
+
 				// get the tool by name
 				toolFound := false
 				for _, tool := range agent.Tools {
@@ -264,7 +281,7 @@ func Run(agent types.Agent, input Input) (AgentResponse, error) {
 						logger.Info("tool execution completed",
 							"tool_name", funcname,
 							"tool_call_id", toolcall.ID)
-						
+
 						toolmessage := types.NewToolMessage(toolcall.ID, result)
 						messages = append(messages, toolmessage)
 						eventChannel <- messageEvent(toolmessage)

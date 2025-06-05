@@ -30,14 +30,14 @@ var agent = agents.Agent{
 	Name:         "Main Agent",
 	Instructions: "You are a helpful assistant. Use the tools provided to answer questions.",
 	Tools:        []tools.Tool{SearchTool},
-	Model:        agents.ModelConfig{Model: "hf.co/unsloth/DeepSeek-R1-0528-Qwen3-8B-GGUF:Q6_K_XL", BaseUrl: "http://127.0.0.1:11434/v1"},
+	Model:        agents.ModelConfig{Model: "qwen3:30b-a3b", BaseUrl: "http://localhost:11434/v1"},
 }
 
 // RunAgent demonstrates running a simple agent with one tool.
 func RunAgent() {
 	// Set up structured logging
 	agent.Logger = utils.SetupLogger()
-	
+
 	input := "What are the classes in Daggerheart?"
 	agentResponse, err := runner.Run(agent, runner.Input{OfString: input})
 	if err != nil {
