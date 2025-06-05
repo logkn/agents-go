@@ -6,6 +6,12 @@ import (
 	"github.com/logkn/agents-go/internal/types"
 )
 
+type HandoffEvent struct {
+	FromAgent string
+	ToAgent   string
+	Prompt    string
+}
+
 // AgentEvent is a generic event emitted during a run. Only one of the fields is
 // typically populated depending on what occurred.
 type AgentEvent struct {
@@ -13,6 +19,7 @@ type AgentEvent struct {
 	OfToken      string
 	OfMessage    *types.Message
 	OfToolResult ToolResult
+	OfHandoff    *HandoffEvent
 	OfError      error
 }
 
@@ -35,6 +42,14 @@ func (e *AgentEvent) ToolResult() (ToolResult, bool) {
 		return e.OfToolResult, true
 	}
 	return ToolResult{}, false
+}
+
+// Handoff returns the handoff event if present.
+func (e *AgentEvent) Handoff() (*HandoffEvent, bool) {
+	if e.OfHandoff != nil {
+		return e.OfHandoff, true
+	}
+	return nil, false
 }
 
 // Error returns the error stored in the event if any.
@@ -66,6 +81,13 @@ func toolEvent(toolResult ToolResult) AgentEvent {
 	return AgentEvent{
 		OfToolResult: toolResult,
 		Timestamp:    time.Now(),
+	}
+}
+
+func handoffEvent(handoff HandoffEvent) AgentEvent {
+	return AgentEvent{
+		OfHandoff: &handoff,
+		Timestamp: time.Now(),
 	}
 }
 
