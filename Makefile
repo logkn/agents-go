@@ -6,3 +6,6 @@ run:
 
 debug:
 	LOG_LEVEL=DEBUG go run cmd/*.go
+
+test:
+	go test ./...
