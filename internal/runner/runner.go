@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/logkn/agents-go/internal/types"
 	"github.com/logkn/agents-go/internal/utils"
@@ -21,16 +20,6 @@ type ToolResult struct {
 	ToolCallID string
 }
 
-// AgentEvent is a generic event emitted during a run. Only one of the fields is
-// typically populated depending on what occurred.
-type AgentEvent struct {
-	Timestamp    time.Time
-	OfToken      string
-	OfMessage    *types.Message
-	OfToolResult ToolResult
-	OfError      error
-}
-
 // Input represents the starting data for a run. Exactly one field should be
 // populated.
 type Input struct {
@@ -38,122 +27,6 @@ type Input struct {
 	OfString string
 	// OfMessages continues an existing conversation.
 	OfMessages []types.Message
-}
-
-// Token returns the token contained in the event if present.
-func (e *AgentEvent) Token() (string, bool) {
-	return e.OfToken, e.OfToken != ""
-}
-
-// Message returns the message contained in the event if present.
-func (e *AgentEvent) Message() (*types.Message, bool) {
-	if e.OfMessage != nil {
-		return e.OfMessage, true
-	}
-	return nil, false
-}
-
-// ToolResult returns the tool output carried by the event if present.
-func (e *AgentEvent) ToolResult() (ToolResult, bool) {
-	if e.OfToolResult.Name != "" {
-		return e.OfToolResult, true
-	}
-	return ToolResult{}, false
-}
-
-// Error returns the error stored in the event if any.
-func (e *AgentEvent) Error() (error, bool) {
-	if e.OfError != nil {
-		return e.OfError, true
-	}
-	return nil, false
-}
-
-// tokenEvent creates a new AgentEvent containing a token.
-func tokenEvent(token string) AgentEvent {
-	return AgentEvent{
-		OfToken:   token,
-		Timestamp: time.Now(),
-	}
-}
-
-// messageEvent creates a new AgentEvent carrying a message.
-func messageEvent(message types.Message) AgentEvent {
-	return AgentEvent{
-		OfMessage: &message,
-		Timestamp: time.Now(),
-	}
-}
-
-// toolEvent creates a new AgentEvent for a tool result.
-func toolEvent(toolResult ToolResult) AgentEvent {
-	return AgentEvent{
-		OfToolResult: toolResult,
-		Timestamp:    time.Now(),
-	}
-}
-
-func errorEvent(err error) AgentEvent {
-	return AgentEvent{
-		OfError:   err,
-		Timestamp: time.Now(),
-	}
-}
-
-// AgentResponse collects all events produced during a run and exposes helper
-// methods to access them.
-type AgentResponse struct {
-	// events is the internal event bus used during streaming.
-	events chan AgentEvent
-	// pastEvents stores everything that has already been observed.
-	pastEvents   []AgentEvent
-	pastMessages []types.Message
-}
-
-// newAgentResponse creates an AgentResponse bound to the provided channel.
-func newAgentResponse(ch chan AgentEvent, pastMessages []types.Message) *AgentResponse {
-	return &AgentResponse{
-		events:       ch,
-		pastEvents:   []AgentEvent{},
-		pastMessages: pastMessages,
-	}
-}
-
-// Stream returns a channel that yields events in real time while also
-// accumulating them for later retrieval.
-func (ar *AgentResponse) Stream() <-chan AgentEvent {
-	outchan := make(chan AgentEvent, 10)
-	go func() {
-		defer close(outchan)
-		for event := range ar.events {
-			ar.pastEvents = append(ar.pastEvents, event)
-			outchan <- event
-		}
-	}()
-	return outchan
-}
-
-// waitForStreamCompletion drains the event stream until it closes.
-func (ar *AgentResponse) waitForStreamCompletion() {
-	for range ar.Stream() {
-	}
-}
-
-// Response returns the last message produced in the conversation.
-func (ar *AgentResponse) Response() types.Message {
-	allMessages := ar.FinalConversation()
-	lastMessage := allMessages[len(allMessages)-1]
-
-	return lastMessage
-}
-
-// FinalConversation waits for streaming to finish and returns every message
-// that occurred during the run.
-func (ar *AgentResponse) FinalConversation() []types.Message {
-	ar.waitForStreamCompletion()
-	finalMessages := make([]types.Message, 0, len(ar.pastMessages)+len(ar.pastEvents))
-	finalMessages = append(finalMessages, ar.pastMessages...)
-	return finalMessages
 }
 
 // Run executes the agent against the provided input and returns an

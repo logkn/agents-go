@@ -1,10 +1,7 @@
 package types
 
 import (
-	"log/slog"
-
 	"github.com/logkn/agents-go/internal/utils"
-	"github.com/logkn/agents-go/tools"
 	"github.com/openai/openai-go"
 )
 
@@ -130,16 +127,4 @@ func AssistantMessageFromOpenAI(msg openai.ChatCompletionMessage, name string) M
 type ModelConfig struct {
 	Model   string
 	BaseUrl string
-}
-
-// Agent represents an autonomous entity that can process instructions and use
-// tools. Tools are optional helpers, while Handoffs specifies other agents that
-// can be delegated work.
-type Agent struct {
-	Name         string
-	Instructions string
-	Tools        []tools.Tool
-	Model        ModelConfig
-	Handoffs     []*Agent
-	Logger       *slog.Logger
 }

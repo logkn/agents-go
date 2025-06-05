@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/logkn/agents-go/internal/runner"
+	"github.com/logkn/agents-go/internal/tools"
 	"github.com/logkn/agents-go/internal/types"
-	"github.com/logkn/agents-go/tools"
 )
 
 type (

@@ -6,7 +6,7 @@ import (
 	"github.com/logkn/agents-go/internal/runner"
 	"github.com/logkn/agents-go/internal/utils"
 	agents "github.com/logkn/agents-go/pkg"
-	"github.com/logkn/agents-go/tools"
+	"github.com/logkn/agents-go/internal/tools"
 )
 
 // SearchWeb represents arguments for the search tool example.

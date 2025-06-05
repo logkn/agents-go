@@ -61,9 +61,9 @@ func (t Tool) RunOnArgs(args string) any {
 	argsInstance := utils.NewInstance(t.Args).(ToolArgs)
 	err := json.Unmarshal([]byte(args), argsInstance)
 	if err != nil {
-		slog.Error("failed to unmarshal tool arguments", 
-			"tool_name", t.CompleteName(), 
-			"args", args, 
+		slog.Error("failed to unmarshal tool arguments",
+			"tool_name", t.CompleteName(),
+			"args", args,
 			"error", err)
 		return map[string]interface{}{
 			"error": fmt.Sprintf("Failed to unmarshal tool arguments: %v", err),
@@ -71,7 +71,7 @@ func (t Tool) RunOnArgs(args string) any {
 			"args":  args,
 		}
 	}
-	
+
 	slog.Debug("executing tool", "tool_name", t.CompleteName())
 	result := argsInstance.Run()
 	slog.Debug("tool execution completed", "tool_name", t.CompleteName())
