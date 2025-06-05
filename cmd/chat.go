@@ -52,3 +52,27 @@ func RunChat() {
 		conversation = resp.FinalConversation()
 	}
 }
+
+// RunSingleQuery processes a single query and exits.
+func RunSingleQuery(query string) {
+	// Set up structured logging
+	agent.Logger = utils.SetupLogger()
+	
+	conversation := []types.Message{
+		types.NewSystemMessage(agent.Instructions),
+		types.NewUserMessage(query),
+	}
+
+	resp, err := runner.Run(agent, runner.Input{OfMessages: conversation})
+	if err != nil {
+		fmt.Println("Error running agent:", err)
+		return
+	}
+
+	for event := range resp.Stream() {
+		if token, ok := event.Token(); ok {
+			fmt.Print(token)
+		}
+	}
+	fmt.Println()
+}
