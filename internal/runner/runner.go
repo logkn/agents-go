@@ -2,8 +2,10 @@ package runner
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/logkn/agents-go/internal/types"
 	"github.com/logkn/agents-go/internal/utils"
@@ -27,6 +29,22 @@ type Input struct {
 	OfString string
 	// OfMessages continues an existing conversation.
 	OfMessages []types.Message
+}
+
+// findHandoffByToolName searches for a handoff that matches the given tool name
+func findHandoffByToolName(agent types.Agent, toolName string) *types.Handoff {
+	for _, handoff := range agent.Handoffs {
+		if handoff.ToolName == toolName || 
+		   (handoff.ToolName == "" && strings.HasPrefix(toolName, "transfer_to_")) {
+			return &handoff
+		}
+	}
+	return nil
+}
+
+// isHandoffTool checks if the given tool name corresponds to a handoff tool
+func isHandoffTool(agent types.Agent, toolName string) bool {
+	return findHandoffByToolName(agent, toolName) != nil
 }
 
 // Run executes the agent against the provided input and returns an
@@ -75,8 +93,9 @@ func Run(agent types.Agent, input Input) (AgentResponse, error) {
 	// 	return AgentResponse{}, err
 	// }
 
-	openAITools := make([]openai.ChatCompletionToolParam, len(agent.Tools))
-	for i, tool := range agent.Tools {
+	allTools := append(agent.Tools, agent.HandoffTools()...)
+	openAITools := make([]openai.ChatCompletionToolParam, len(allTools))
+	for i, tool := range allTools {
 		openAITools[i] = tool.ToOpenAITool()
 	}
 
@@ -145,9 +164,57 @@ func Run(agent types.Agent, input Input) (AgentResponse, error) {
 					"tool_call_id", toolcall.ID,
 					"args_length", len(toolcall.Args))
 
-				// get the tool by name
+				// Check if this is a handoff tool
+				if handoff := findHandoffByToolName(agent, funcname); handoff != nil {
+					logger.Info("executing handoff",
+						"from_agent", agent.Name,
+						"to_agent", handoff.Agent.Name,
+						"tool_call_id", toolcall.ID)
+
+					// Parse handoff arguments to get the prompt
+					var args struct {
+						Prompt string `json:"prompt"`
+					}
+					if err := json.Unmarshal([]byte(toolcall.Args), &args); err != nil {
+						logger.Error("failed to parse handoff arguments", "error", err)
+						continue
+					}
+
+					// Emit handoff event
+					eventChannel <- handoffEvent(HandoffEvent{
+						FromAgent: agent.Name,
+						ToAgent:   handoff.Agent.Name,
+						Prompt:    args.Prompt,
+					})
+
+					// Create tool result message for the handoff
+					toolmessage := types.NewToolMessage(toolcall.ID, "Transferring to "+handoff.Agent.Name+" agent")
+					messages = append(messages, toolmessage)
+					eventChannel <- messageEvent(toolmessage)
+
+					// Switch to the handoff agent and continue with the new prompt
+					agent = *handoff.Agent
+					if agent.Logger == nil {
+						agent.Logger = logger
+					}
+
+					// Add the handoff prompt as a user message
+					messages = append(messages, types.NewUserMessage(args.Prompt))
+
+					// Update tool list for the new agent
+					allTools = append(agent.Tools, agent.HandoffTools()...)
+					openAITools = make([]openai.ChatCompletionToolParam, len(allTools))
+					for i, tool := range allTools {
+						openAITools[i] = tool.ToOpenAITool()
+					}
+
+					logger.Info("handoff completed", "new_agent", agent.Name)
+					continue
+				}
+
+				// Regular tool execution
 				toolFound := false
-				for _, tool := range agent.Tools {
+				for _, tool := range allTools {
 					if tool.CompleteName() == funcname {
 						toolFound = true
 						result := tool.RunOnArgs(toolcall.Args)
