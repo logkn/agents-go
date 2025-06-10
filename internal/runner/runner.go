@@ -34,8 +34,8 @@ type Input struct {
 // findHandoffByToolName searches for a handoff that matches the given tool name
 func findHandoffByToolName(agent types.Agent, toolName string) *types.Handoff {
 	for _, handoff := range agent.Handoffs {
-		if handoff.ToolName == toolName || 
-		   (handoff.ToolName == "" && strings.HasPrefix(toolName, "transfer_to_")) {
+		if handoff.ToolName == toolName ||
+			(handoff.ToolName == "" && strings.HasPrefix(toolName, "transfer_to_")) {
 			return &handoff
 		}
 	}

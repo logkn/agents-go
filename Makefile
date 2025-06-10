@@ -1,5 +1,5 @@
 # Makefile for Go project
-.PHONY: all build test run debug
+.PHONY: all build test run debug format
 
 run:
 	LOG_LEVEL=ERROR go run cmd/*.go
@@ -9,3 +9,6 @@ debug:
 
 test:
 	go test ./...
+
+format:
+	go fmt ./...

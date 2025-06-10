@@ -72,4 +72,3 @@ func main() {
 
 	fmt.Printf("\n\nFinal response: %s\n", response.Response().Content)
 }
-

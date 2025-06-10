@@ -10,7 +10,7 @@ import (
 // Falls back to INFO level if LOG_LEVEL is not set or invalid.
 func SetupLogger() *slog.Logger {
 	logLevel := slog.LevelInfo // default to INFO
-	
+
 	if level := os.Getenv("LOG_LEVEL"); level != "" {
 		switch strings.ToUpper(level) {
 		case "DEBUG":
@@ -29,7 +29,7 @@ func SetupLogger() *slog.Logger {
 			logger.Warn("invalid LOG_LEVEL value, falling back to INFO", "provided_level", level)
 		}
 	}
-	
+
 	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: logLevel,
 	}))
