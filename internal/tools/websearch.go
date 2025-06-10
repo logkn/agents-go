@@ -9,10 +9,10 @@ import (
 	"strings"
 )
 
-// WebSearch performs web searches using the Google Custom Search API.
+// webSearch performs web searches using the Google Custom Search API.
 // It requires GOOGLE_SEARCH_API_KEY and GOOGLE_SEARCH_CX environment variables.
 // Optionally, GOOGLE_SEARCH_ENDPOINT can be set to override the default API endpoint.
-type WebSearch struct {
+type webSearch struct {
 	// Query is the search query string (must be non-empty after trimming).
 	Query string `json:"query" description:"The search query to execute"`
 	// NumResults is the maximum number of results to return (defaults to 3 if <= 0).
@@ -42,7 +42,7 @@ type SearchResponse struct {
 //
 // Optional environment variables:
 //   - GOOGLE_SEARCH_ENDPOINT: Custom API endpoint (defaults to Google's API)
-func (w WebSearch) Run() any {
+func (w webSearch) Run() any {
 	// Validate query
 	query := strings.TrimSpace(w.Query)
 	if query == "" {
@@ -113,4 +113,10 @@ func (w WebSearch) Run() any {
 	}
 
 	return SearchResponse{Results: results}
+}
+
+var SearchTool = Tool{
+	Name:        "web_search",
+	Description: "Search the web for accurate and up-to-date information.",
+	Args:        webSearch{},
 }

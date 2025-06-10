@@ -15,7 +15,7 @@ func main() {
 		Name:         "Math Specialist",
 		Instructions: "You are a math specialist. Help users with mathematical calculations and problems. If asked about non-math topics, transfer to the general assistant.",
 		Model: types.ModelConfig{
-			Model: "gpt-4",
+			Model: "qwen3:30b-a3b",
 		},
 		Logger: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})),
 	}
@@ -24,7 +24,7 @@ func main() {
 		Name:         "General Assistant",
 		Instructions: "You are a general purpose assistant. Help users with various tasks. If asked complex math questions, transfer to the math specialist.",
 		Model: types.ModelConfig{
-			Model: "gpt-4",
+			Model: "qwen3:30b-a3b",
 		},
 		Logger: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})),
 	}

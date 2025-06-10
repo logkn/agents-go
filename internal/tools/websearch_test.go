@@ -22,7 +22,7 @@ func TestWebSearchRun(t *testing.T) {
 	defer os.Unsetenv("GOOGLE_SEARCH_CX")
 	defer os.Unsetenv("GOOGLE_SEARCH_ENDPOINT")
 
-	ws := WebSearch{Query: "golang", NumResults: 1}
+	ws := webSearch{Query: "golang", NumResults: 1}
 	res := ws.Run()
 
 	response, ok := res.(SearchResponse)
@@ -38,7 +38,7 @@ func TestWebSearchRun(t *testing.T) {
 }
 
 func TestWebSearchRun_EmptyQuery(t *testing.T) {
-	ws := WebSearch{Query: "", NumResults: 1}
+	ws := webSearch{Query: "", NumResults: 1}
 	res := ws.Run()
 
 	response, ok := res.(SearchResponse)
@@ -51,7 +51,7 @@ func TestWebSearchRun_EmptyQuery(t *testing.T) {
 }
 
 func TestWebSearchRun_WhitespaceQuery(t *testing.T) {
-	ws := WebSearch{Query: "   \t\n  ", NumResults: 1}
+	ws := webSearch{Query: "   \t\n  ", NumResults: 1}
 	res := ws.Run()
 
 	response, ok := res.(SearchResponse)
@@ -68,7 +68,7 @@ func TestWebSearchRun_MissingAPIKey(t *testing.T) {
 	os.Setenv("GOOGLE_SEARCH_CX", "cx")
 	defer os.Unsetenv("GOOGLE_SEARCH_CX")
 
-	ws := WebSearch{Query: "golang", NumResults: 1}
+	ws := webSearch{Query: "golang", NumResults: 1}
 	res := ws.Run()
 
 	response, ok := res.(SearchResponse)
@@ -85,7 +85,7 @@ func TestWebSearchRun_MissingSearchCX(t *testing.T) {
 	os.Unsetenv("GOOGLE_SEARCH_CX")
 	defer os.Unsetenv("GOOGLE_SEARCH_API_KEY")
 
-	ws := WebSearch{Query: "golang", NumResults: 1}
+	ws := webSearch{Query: "golang", NumResults: 1}
 	res := ws.Run()
 
 	response, ok := res.(SearchResponse)
@@ -115,11 +115,11 @@ func TestWebSearchRun_DefaultNumResults(t *testing.T) {
 	defer os.Unsetenv("GOOGLE_SEARCH_ENDPOINT")
 
 	// Test with NumResults = 0
-	ws := WebSearch{Query: "golang", NumResults: 0}
+	ws := webSearch{Query: "golang", NumResults: 0}
 	ws.Run()
 
 	// Test with NumResults < 0
-	ws = WebSearch{Query: "golang", NumResults: -1}
+	ws = webSearch{Query: "golang", NumResults: -1}
 	ws.Run()
 }
 
@@ -136,7 +136,7 @@ func TestWebSearchRun_HTTPError(t *testing.T) {
 	defer os.Unsetenv("GOOGLE_SEARCH_CX")
 	defer os.Unsetenv("GOOGLE_SEARCH_ENDPOINT")
 
-	ws := WebSearch{Query: "golang", NumResults: 1}
+	ws := webSearch{Query: "golang", NumResults: 1}
 	res := ws.Run()
 
 	response, ok := res.(SearchResponse)

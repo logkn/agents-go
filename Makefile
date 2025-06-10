@@ -2,7 +2,7 @@
 .PHONY: all build test run debug
 
 run:
-	go run cmd/*.go
+	LOG_LEVEL=ERROR go run cmd/*.go
 
 debug:
 	LOG_LEVEL=DEBUG go run cmd/*.go

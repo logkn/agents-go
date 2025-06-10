@@ -7,15 +7,24 @@ import (
 	"strings"
 
 	"github.com/logkn/agents-go/internal/runner"
+	"github.com/logkn/agents-go/internal/tools"
 	"github.com/logkn/agents-go/internal/types"
 	"github.com/logkn/agents-go/internal/utils"
+	agents "github.com/logkn/agents-go/pkg"
 )
+
+var agent = agents.Agent{
+	Name:         "Main Agent",
+	Instructions: "You are a helpful assistant. Use the tools provided to answer questions.",
+	Tools:        []tools.Tool{tools.SearchTool},
+	Model:        agents.ModelConfig{Model: "qwen3:30b-a3b", BaseUrl: "http://localhost:11434/v1"},
+}
 
 // RunChat starts an interactive session with the agent allowing multiple turns.
 func RunChat() {
 	// Set up structured logging
 	agent.Logger = utils.SetupLogger()
-	
+
 	conversation := []types.Message{types.NewSystemMessage(agent.Instructions)}
 	reader := bufio.NewReader(os.Stdin)
 
@@ -57,7 +66,7 @@ func RunChat() {
 func RunSingleQuery(query string) {
 	// Set up structured logging
 	agent.Logger = utils.SetupLogger()
-	
+
 	conversation := []types.Message{
 		types.NewSystemMessage(agent.Instructions),
 		types.NewUserMessage(query),
