@@ -11,7 +11,10 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const gap = "\n\n"
+const (
+	gap       = "\n\n"
+	grayColor = "#737373"
+)
 
 func RunTUI() {
 	p := tea.NewProgram(initialModel())
@@ -59,7 +62,7 @@ func initialModel() model {
 		textarea:    ta,
 		messages:    []string{},
 		viewport:    vp,
-		senderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("#737373")),
+		senderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color(grayColor)),
 		err:         nil,
 	}
 }
@@ -95,7 +98,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case tea.KeyEnter:
 			m.messages = append(m.messages, m.senderStyle.Render("> "+m.textarea.Value()))
-			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n\n")))
+			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, gap)))
 			m.textarea.Reset()
 			m.viewport.GotoBottom()
 		}
