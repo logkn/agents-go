@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -56,7 +57,7 @@ func initialModel() model {
 	// 	vp.SetContent(`Welcome to the chat room!
 	// Type a message and press Enter to send.`)
 
-	ta.KeyMap.InsertNewline.SetEnabled(false)
+	ta.KeyMap.InsertNewline.SetEnabled(true)
 
 	return model{
 		textarea:    ta,
@@ -80,11 +81,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.textarea, tiCmd = m.textarea.Update(msg)
 	m.viewport, vpCmd = m.viewport.Update(msg)
 
+	// newline binding
+	newlineBinding := key.NewBinding()
+	newlineBinding.SetKeys("ctrl+j")
+	m.textarea.KeyMap.InsertNewline = newlineBinding
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		// Reset terminal on resize
 		fmt.Print("\033[2J\033[H")
-		
+
 		m.viewport.Width = msg.Width
 		m.textarea.SetWidth(msg.Width)
 		m.viewport.Height = msg.Height - m.textarea.Height() - lipgloss.Height(gap)
@@ -95,11 +101,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.viewport.GotoBottom()
 	case tea.KeyMsg:
+		// fmt.Println(msg)
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			fmt.Println(m.textarea.Value())
 			return m, tea.Quit
 		case tea.KeyEnter:
+			// Check if shift is pressed by examining the key string
+			// Regular Enter: send message
 			m.messages = append(m.messages, m.senderStyle.Render("> "+m.textarea.Value()))
 			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, gap)))
 			m.textarea.Reset()
