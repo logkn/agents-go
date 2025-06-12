@@ -2,99 +2,118 @@ package cli
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
+const gap = "\n\n"
+
+func RunTUI() {
+	p := tea.NewProgram(initialModel())
+
+	if _, err := p.Run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+type (
+	errMsg error
+)
+
 type model struct {
-	textInput     textinput.Model
-	messages      []string
-	terminalWidth int
-	initialized   bool
+	viewport    viewport.Model
+	messages    []string
+	textarea    textarea.Model
+	senderStyle lipgloss.Style
+	err         error
 }
 
 func initialModel() model {
-	ti := textinput.New()
-	ti.Placeholder = "Type something and press Enter..."
-	ti.Focus()
-	ti.Cursor.SetMode(0) // Disable blinking
+	ta := textarea.New()
+	ta.Placeholder = "Send a message..."
+	ta.Focus()
+
+	ta.Prompt = "┃ "
+	ta.CharLimit = 280
+
+	ta.SetWidth(30)
+	ta.SetHeight(3)
+
+	// Remove cursor line styling
+	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
+
+	ta.ShowLineNumbers = false
+
+	vp := viewport.New(30, 5)
+	// 	vp.SetContent(`Welcome to the chat room!
+	// Type a message and press Enter to send.`)
+
+	ta.KeyMap.InsertNewline.SetEnabled(false)
 
 	return model{
-		textInput:     ti,
-		messages:      []string{},
-		terminalWidth: 0, // Will be set on first WindowSizeMsg
-		initialized:   false,
+		textarea:    ta,
+		messages:    []string{},
+		viewport:    vp,
+		senderStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("#737373")),
+		err:         nil,
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return textarea.Blink
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
+	var (
+		tiCmd tea.Cmd
+		vpCmd tea.Cmd
+	)
+
+	m.textarea, tiCmd = m.textarea.Update(msg)
+	m.viewport, vpCmd = m.viewport.Update(msg)
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		if !m.initialized {
-			// First time - just set the width without clearing
-			m.initialized = true
-			m.terminalWidth = msg.Width
-			m.textInput.Width = msg.Width - 4
-		} else if msg.Width != m.terminalWidth {
-			// Actual resize - clear and update
-			m.terminalWidth = msg.Width
-			m.textInput.Width = msg.Width - 4
-			return m, tea.Sequence(tea.ClearScreen, tea.EnterAltScreen, tea.ExitAltScreen)
+		m.viewport.Width = msg.Width
+		m.textarea.SetWidth(msg.Width)
+		m.viewport.Height = msg.Height - m.textarea.Height() - lipgloss.Height(gap)
+
+		if len(m.messages) > 0 {
+			// Wrap content before setting it.
+			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
 		}
+		m.viewport.GotoBottom()
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c":
+		switch msg.Type {
+		case tea.KeyCtrlC, tea.KeyEsc:
+			fmt.Println(m.textarea.Value())
 			return m, tea.Quit
-		case "enter":
-			if m.textInput.Value() != "" {
-				// Add the submitted text to messages
-				m.messages = append(m.messages, m.textInput.Value())
-				// Clear the input
-				m.textInput.SetValue("")
-			}
+		case tea.KeyEnter:
+			m.messages = append(m.messages, m.senderStyle.Render("> "+m.textarea.Value()))
+			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n\n")))
+			m.textarea.Reset()
+			m.viewport.GotoBottom()
 		}
+
+	// We handle errors just like any other message
+	case errMsg:
+		m.err = msg
+		return m, nil
 	}
 
-	// Update the text input
-	m.textInput, cmd = m.textInput.Update(msg)
-	return m, cmd
+	return m, tea.Batch(tiCmd, vpCmd)
 }
 
 func (m model) View() string {
-	// Build the output from all submitted messages
-	var output strings.Builder
-
-	for _, message := range m.messages {
-		output.WriteString("> " + message + "\n\n")
-	}
-
-	// Style the input box with centered margins
-	inputStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		Padding(0, 1).
-		Width(m.textInput.Width + 2) // Account for padding
-
-	// Combine messages and input
 	return fmt.Sprintf(
-		"%s\n%s\n\nPress Ctrl+C to quit",
-		output.String(),
-		inputStyle.Render(m.textInput.View()),
+		"%s%s%s",
+		m.viewport.View(),
+		gap,
+		m.textarea.View(),
 	)
-}
-
-func RunTUI() {
-	p := tea.NewProgram(initialModel())
-	if _, err := p.Run(); err != nil {
-		fmt.Printf("Error: %v", err)
-	}
 }
