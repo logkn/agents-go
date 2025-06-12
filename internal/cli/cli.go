@@ -17,7 +17,7 @@ const (
 )
 
 func RunTUI() {
-	p := tea.NewProgram(initialModel())
+	p := tea.NewProgram(initialModel(), tea.WithMouseCellMotion())
 
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
@@ -82,13 +82,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		// Reset terminal on resize
+		fmt.Print("\033[2J\033[H")
+		
 		m.viewport.Width = msg.Width
 		m.textarea.SetWidth(msg.Width)
 		m.viewport.Height = msg.Height - m.textarea.Height() - lipgloss.Height(gap)
 
 		if len(m.messages) > 0 {
 			// Wrap content before setting it.
-			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, "\n")))
+			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, gap)))
 		}
 		m.viewport.GotoBottom()
 	case tea.KeyMsg:
@@ -101,6 +104,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(m.messages, gap)))
 			m.textarea.Reset()
 			m.viewport.GotoBottom()
+		case tea.KeyUp:
+			m.viewport.LineUp(1)
+		case tea.KeyDown:
+			m.viewport.LineDown(1)
+		case tea.KeyPgUp:
+			m.viewport.HalfViewUp()
+		case tea.KeyPgDown:
+			m.viewport.HalfViewDown()
+		}
+	case tea.MouseMsg:
+		if msg.Type == tea.MouseWheelUp {
+			m.viewport.LineUp(3)
+		} else if msg.Type == tea.MouseWheelDown {
+			m.viewport.LineDown(3)
 		}
 
 	// We handle errors just like any other message
