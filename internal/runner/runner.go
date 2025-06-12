@@ -107,9 +107,10 @@ func Run(agent types.Agent, input Input) (AgentResponse, error) {
 			logger.Debug("sending request to LLM", "message_count", len(messages))
 			openaiMessages := utils.MapSlice(messages, types.Message.ToOpenAI)
 			params := openai.ChatCompletionNewParams{
-				Messages: openaiMessages,
-				Model:    agent.Model.Model,
-				Tools:    openAITools,
+				Messages:    openaiMessages,
+				Model:       agent.Model.Model,
+				Tools:       openAITools,
+				Temperature: openai.Float(0.6),
 			}
 			stream := client.Chat.Completions.NewStreaming(context.TODO(), params)
 			acc := openai.ChatCompletionAccumulator{}
