@@ -48,7 +48,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Actual resize - clear and update
 			m.terminalWidth = msg.Width
 			m.textInput.Width = msg.Width - 4
-			return m, tea.ClearScreen
+			return m, tea.Sequence(tea.ClearScreen, tea.EnterAltScreen, tea.ExitAltScreen)
 		}
 	case tea.KeyMsg:
 		switch msg.String() {
