@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"log/slog"
+	"regexp"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/logkn/agents-go/internal/runner"
 	"github.com/logkn/agents-go/internal/tools"
@@ -26,6 +28,11 @@ const (
 	gap       = "\n\n"
 	grayColor = "#737373"
 	ant       = "#b06227"
+)
+
+var mdRenderer, _ = glamour.NewTermRenderer(
+	glamour.WithStylePath("customstyle.json"),
+	glamour.WithWordWrap(0),
 )
 
 var agent = agents.Agent{
@@ -81,6 +88,7 @@ type model struct {
 	streamSpinner     spinner.Model
 	streamInterrupted bool
 	agent             agents.Agent
+	mdRenderer        *glamour.TermRenderer
 }
 
 func initialModel() model {
@@ -138,20 +146,51 @@ func (m model) Init() tea.Cmd {
 	return tea.Batch(textarea.Blink, m.thinkingSpinner.Tick, m.streamSpinner.Tick)
 }
 
+func renderMarkdown(text string) string {
+	// <think>...</think> tags should be treated as dulled text
+	text = strings.TrimSpace(text)
+
+	// if it starts with a <think> tag but doesn't have a </think> tag
+	// we should add one at the end
+
+	thinkStartRe := regexp.MustCompile(`<think>\s*`)
+	thinkEndRe := regexp.MustCompile(`\s*</think>`)
+
+	if thinkStartRe.MatchString(text) && !thinkEndRe.MatchString(text) {
+		text += "</think>"
+	}
+
+	text = thinkStartRe.ReplaceAllString(text, "")
+	text = thinkEndRe.ReplaceAllString(text, "")
+
+	if mdRenderer == nil {
+		return text
+	}
+	rendered, err := mdRenderer.Render(text)
+	if err != nil {
+		panic(err)
+	}
+
+	// strip surrounding whitespace
+	return strings.TrimSpace(rendered)
+}
+
 func (m *model) renderStream() string {
 	// isStreaming := m.streamChan != nil
 	spinner := m.streamSpinner.View()
-	return fmt.Sprintf("%s %s", spinner, m.responseBuffer)
+	fmtBuffer := renderMarkdown(m.responseBuffer)
+	return fmt.Sprintf("%s %s", spinner, fmtBuffer)
 }
 
-func renderMessage(msg types.Message) string {
+func (m *model) renderMessage(msg types.Message) string {
+	content := renderMarkdown(msg.Content)
 	switch msg.Role {
 	case types.User:
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(grayColor)).Render("> " + msg.Content)
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(grayColor)).Render("> " + content)
 	case types.Assistant:
-		return "● " + msg.Content
+		return "● " + content
 	default:
-		return msg.Content
+		return content
 	}
 }
 
@@ -196,7 +235,7 @@ func (m *model) renderSpinner() string {
 func (m *model) updateViewport() {
 	curResponse := m.responseBuffer
 
-	lines := utils.MapSlice(m.messages, renderMessage)
+	lines := utils.MapSlice(m.messages, m.renderMessage)
 	if m.isThinking {
 		lines = append(lines, m.renderSpinner())
 	}
