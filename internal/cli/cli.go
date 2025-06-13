@@ -28,6 +28,19 @@ const (
 	ant       = "#b06227"
 )
 
+var agent = agents.Agent{
+	Name:         "Main Agent",
+	Instructions: "You are a helpful assistant. Use the tools provided to answer questions.",
+	Tools: []tools.Tool{
+		tools.SearchTool,
+	},
+	Model: types.ModelConfig{
+		Model:       "qwen3:30b-a3b",
+		BaseUrl:     "http://localhost:11434/v1",
+		Temperature: 0.6,
+	},
+}
+
 func RunTUI() {
 	p := tea.NewProgram(initialModel(), tea.WithMouseCellMotion())
 
@@ -106,13 +119,7 @@ func initialModel() model {
 
 	// Configure agent with silent logger
 	silentLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	agent := agents.Agent{
-		Name:         "Assistant",
-		Instructions: "You are a helpful assistant. Answer questions clearly and concisely.",
-		Tools:        []tools.Tool{}, // No tools for now
-		Model:        agents.ModelConfig{Model: "qwen3:30b-a3b", BaseUrl: "http://localhost:11434/v1"},
-		Logger:       silentLogger,
-	}
+	agent.Logger = silentLogger
 
 	return model{
 		textarea:        ta,
