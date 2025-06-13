@@ -31,6 +31,12 @@ func RunTUI() {
 	}
 }
 
+// type responseSpinner struct{}
+var responseSpinner = spinner.Spinner{
+	Frames: []string{"🞅", "🞆", "🞇", "🞈", "🞉", "●", "🞉", "🞈", "🞇", "🞆"},
+	FPS:    time.Second / 8,
+}
+
 type (
 	errMsg      error
 	tokenMsg    string
@@ -87,9 +93,6 @@ func initialModel() model {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(grayColor))
 
-	// Cursor styling - solid when focused, invisible when blurred
-	ta.Cursor.Style = lipgloss.NewStyle()
-
 	ta.ShowLineNumbers = false
 
 	vp := viewport.New(30, 5)
@@ -103,7 +106,7 @@ func initialModel() model {
 
 	// stream spinner
 	ss := spinner.New()
-	ss.Spinner = spinner.Points
+	ss.Spinner = responseSpinner
 
 	return model{
 		textarea:        ta,
@@ -132,7 +135,7 @@ func renderMessage(msg types.Message) string {
 	case types.User:
 		return lipgloss.NewStyle().Foreground(lipgloss.Color(grayColor)).Render("> " + msg.Content)
 	case types.Assistant:
-		return " ●  " + msg.Content
+		return "● " + msg.Content
 	default:
 		return msg.Content
 	}
