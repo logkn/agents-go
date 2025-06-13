@@ -147,12 +147,10 @@ func (m model) Init() tea.Cmd {
 }
 
 func renderMarkdown(text string) string {
-	// <think>...</think> tags should be treated as dulled text
 	text = strings.TrimSpace(text)
 
 	// if it starts with a <think> tag but doesn't have a </think> tag
 	// we should add one at the end
-
 	thinkStartRe := regexp.MustCompile(`<think>\s*`)
 	thinkEndRe := regexp.MustCompile(`\s*</think>`)
 
@@ -160,19 +158,89 @@ func renderMarkdown(text string) string {
 		text += "</think>"
 	}
 
-	text = thinkStartRe.ReplaceAllString(text, "")
-	text = thinkEndRe.ReplaceAllString(text, "")
+	// Parse text to separate thinking from non-thinking content
+	thinkTagRe := regexp.MustCompile(`(?s)<think>\s*(.*?)\s*</think>`)
+	var result strings.Builder
+	lastEnd := 0
 
-	if mdRenderer == nil {
-		return text
-	}
-	rendered, err := mdRenderer.Render(text)
-	if err != nil {
-		panic(err)
+	matches := thinkTagRe.FindAllStringSubmatchIndex(text, -1)
+
+	for _, match := range matches {
+		// Add non-thinking content before this match
+		if match[0] > lastEnd {
+			nonThinkingContent := text[lastEnd:match[0]]
+			if strings.TrimSpace(nonThinkingContent) != "" {
+				if result.Len() > 0 {
+					result.WriteString("\n")
+				}
+				if mdRenderer != nil {
+					rendered, err := mdRenderer.Render(nonThinkingContent)
+					if err == nil {
+						result.WriteString(strings.TrimSpace(rendered))
+					} else {
+						result.WriteString(nonThinkingContent)
+					}
+				} else {
+					result.WriteString(nonThinkingContent)
+				}
+			}
+		}
+
+		// Add thinking content with gray styling
+		thinkingContent := text[match[2]:match[3]]
+		if strings.TrimSpace(thinkingContent) != "" {
+			if result.Len() > 0 {
+				result.WriteString("\n")
+			}
+			grayStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(grayColor)).Italic(true)
+			if mdRenderer != nil {
+				rendered, err := mdRenderer.Render(thinkingContent)
+				if err == nil {
+					result.WriteString(grayStyle.Render(strings.TrimSpace(rendered)))
+				} else {
+					result.WriteString(grayStyle.Render(thinkingContent))
+				}
+			} else {
+				result.WriteString(grayStyle.Render(thinkingContent))
+			}
+		}
+
+		lastEnd = match[1]
 	}
 
-	// strip surrounding whitespace
-	return strings.TrimSpace(rendered)
+	// Add any remaining non-thinking content
+	if lastEnd < len(text) {
+		nonThinkingContent := text[lastEnd:]
+		if strings.TrimSpace(nonThinkingContent) != "" {
+			if result.Len() > 0 {
+				result.WriteString("\n")
+			}
+			if mdRenderer != nil {
+				rendered, err := mdRenderer.Render(nonThinkingContent)
+				if err == nil {
+					result.WriteString(strings.TrimSpace(rendered))
+				} else {
+					result.WriteString(nonThinkingContent)
+				}
+			} else {
+				result.WriteString(nonThinkingContent)
+			}
+		}
+	}
+
+	// If no matches found, render as normal markdown
+	if len(matches) == 0 {
+		if mdRenderer == nil {
+			return text
+		}
+		rendered, err := mdRenderer.Render(text)
+		if err != nil {
+			panic(err)
+		}
+		return strings.TrimSpace(rendered)
+	}
+
+	return strings.TrimSpace(result.String())
 }
 
 func (m *model) renderStream() string {
