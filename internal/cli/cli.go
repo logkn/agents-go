@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -71,8 +72,9 @@ func initialModel() model {
 	ta := textarea.New()
 	ta.Placeholder = "Send a message..."
 	ta.Focus()
+	ta.Cursor.SetMode(cursor.CursorStatic)
 
-	ta.Prompt = "> "
+	ta.Prompt = " > "
 
 	ta.SetWidth(30)
 	ta.SetHeight(1)
@@ -84,6 +86,9 @@ func initialModel() model {
 	ta.FocusedStyle.Base = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(grayColor))
+
+	// Cursor styling - solid when focused, invisible when blurred
+	ta.Cursor.Style = lipgloss.NewStyle()
 
 	ta.ShowLineNumbers = false
 
