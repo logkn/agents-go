@@ -40,6 +40,7 @@ var agent = agents.Agent{
 	Instructions: "You are a helpful assistant. Use the tools provided to answer questions.",
 	Tools: []tools.Tool{
 		tools.SearchTool,
+		tools.PwdTool,
 	},
 	Model: types.ModelConfig{
 		Model:       "qwen3:30b-a3b",
@@ -63,9 +64,10 @@ var responseSpinner = spinner.Spinner{
 }
 
 type (
-	errMsg      error
-	tokenMsg    string
-	streamReady chan string
+	errMsg        error
+	tokenMsg      string
+	streamReady   chan string
+	agentResponse *runner.AgentResponse
 )
 
 type responseModel struct {
@@ -89,6 +91,8 @@ type model struct {
 	streamInterrupted bool
 	agent             agents.Agent
 	mdRenderer        *glamour.TermRenderer
+	currentResponse   *runner.AgentResponse
+	pendingMessage    *types.Message
 }
 
 func initialModel() model {
@@ -274,15 +278,37 @@ func (m *model) realAgentResponse() tea.Cmd {
 			return streamReady(errorChan)
 		}
 
-		// Convert agent stream to token channel
+		// Store the response object for later use
+		m.currentResponse = &resp
+
+		// Convert agent stream to enhanced event channel while also collecting final conversation
 		tokenChan := make(chan string, 100)
 		go func() {
 			defer close(tokenChan)
-			for event := range resp.Stream() {
+			// Process the stream but let the response object collect events too
+			stream := resp.Stream()
+			for event := range stream {
+				// Handle different event types for display
 				if token, hasToken := event.Token(); hasToken && token != "" {
 					tokenChan <- token
+				} else if message, hasMessage := event.Message(); hasMessage {
+					// Store the complete message for later addition to conversation
+					m.pendingMessage = message
+					// Signal that we have a complete message - clear buffer
+					tokenChan <- "::MESSAGE::" + message.Content
+				} else if toolResult, hasToolResult := event.ToolResult(); hasToolResult {
+					// Show tool execution
+					tokenChan <- "::TOOL::" + toolResult.Name + "::" + fmt.Sprintf("%v", toolResult.Content)
+				} else if handoff, hasHandoff := event.Handoff(); hasHandoff {
+					// Show agent handoff
+					tokenChan <- "::HANDOFF::" + handoff.FromAgent + " -> " + handoff.ToAgent + ": " + handoff.Prompt
+				} else if eventErr, hasError := event.Error(); hasError {
+					// Show errors
+					tokenChan <- "::ERROR::" + eventErr.Error()
 				}
 			}
+			// Signal that we can now get the final conversation
+			tokenChan <- "::FINAL::"
 		}()
 
 		return streamReady(tokenChan)
@@ -399,42 +425,123 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return tokenMsg("done")
 			}
 		case "done":
-			// Streaming finished, add complete response to messages
-			if len(m.responseBuffer) > 0 {
-				aiMessage := types.NewAssistantMessage(m.responseBuffer, "AI", []types.ToolCall{})
-				m.messages = append(m.messages, aiMessage)
-				m.responseBuffer = ""
+			// Streaming finished, add pending message if available
+			if m.pendingMessage != nil {
+				m.messages = append(m.messages, *m.pendingMessage)
+				m.pendingMessage = nil
 			}
+			m.responseBuffer = ""
 			m.isThinking = false
 			m.streamChan = nil
 			m.streamInterrupted = false
+			m.currentResponse = nil
 			return m, nil
 		default:
-			// Regular token - check if stream was interrupted
-			if m.streamInterrupted {
-				// Stream was interrupted, finalize partial response
-				if len(m.responseBuffer) > 0 {
-					aiMessage := types.NewAssistantMessage(m.responseBuffer, "AI", []types.ToolCall{})
-					m.messages = append(m.messages, aiMessage)
-					m.responseBuffer = ""
+			// Check for special event messages
+			token := string(msg)
+			if token == "::FINAL::" {
+				// Stream is complete, add the pending message to conversation
+				if m.pendingMessage != nil {
+					m.messages = append(m.messages, *m.pendingMessage)
+					m.pendingMessage = nil
 				}
+				m.responseBuffer = ""
 				m.isThinking = false
 				m.streamChan = nil
 				m.streamInterrupted = false
+				m.currentResponse = nil
 				return m, nil
-			}
-
-			m.isThinking = false
-			m.responseBuffer += string(msg)
-			return m, tea.Tick(time.Millisecond*50, func(time.Time) tea.Msg {
-				if m.streamChan != nil && !m.streamInterrupted {
-					token, ok := <-m.streamChan
-					if ok && token != "" {
-						return tokenMsg(token)
+			} else if strings.HasPrefix(token, "::MESSAGE::") {
+				// Complete message received - clear buffer and use the message content
+				messageContent := strings.TrimPrefix(token, "::MESSAGE::")
+				m.responseBuffer = messageContent
+				// Continue to get next token
+				return m, tea.Tick(time.Millisecond*50, func(time.Time) tea.Msg {
+					if m.streamChan != nil && !m.streamInterrupted {
+						nextToken, ok := <-m.streamChan
+						if ok && nextToken != "" {
+							return tokenMsg(nextToken)
+						}
 					}
+					return tokenMsg("done")
+				})
+			} else if strings.HasPrefix(token, "::TOOL::") {
+				// Tool execution - add visual indicator
+				parts := strings.Split(strings.TrimPrefix(token, "::TOOL::"), "::")
+				if len(parts) >= 2 {
+					toolName := parts[0]
+					toolResult := parts[1]
+					toolIndicator := fmt.Sprintf("\n**Tool:** %s\n**Result:** %s\n", toolName, toolResult)
+					m.responseBuffer += toolIndicator
 				}
-				return tokenMsg("done")
-			})
+				// Continue to get next token
+				return m, tea.Tick(time.Millisecond*50, func(time.Time) tea.Msg {
+					if m.streamChan != nil && !m.streamInterrupted {
+						nextToken, ok := <-m.streamChan
+						if ok && nextToken != "" {
+							return tokenMsg(nextToken)
+						}
+					}
+					return tokenMsg("done")
+				})
+			} else if strings.HasPrefix(token, "::HANDOFF::") {
+				// Agent handoff - add visual indicator
+				handoffMsg := strings.TrimPrefix(token, "::HANDOFF::")
+				handoffIndicator := fmt.Sprintf("\n🔄 **Agent Handoff:** %s\n", handoffMsg)
+				m.responseBuffer += handoffIndicator
+				// Continue to get next token
+				return m, tea.Tick(time.Millisecond*50, func(time.Time) tea.Msg {
+					if m.streamChan != nil && !m.streamInterrupted {
+						nextToken, ok := <-m.streamChan
+						if ok && nextToken != "" {
+							return tokenMsg(nextToken)
+						}
+					}
+					return tokenMsg("done")
+				})
+			} else if strings.HasPrefix(token, "::ERROR::") {
+				// Error event - add visual indicator
+				errorMsg := strings.TrimPrefix(token, "::ERROR::")
+				errorIndicator := fmt.Sprintf("\n❌ **Error:** %s\n", errorMsg)
+				m.responseBuffer += errorIndicator
+				// Continue to get next token
+				return m, tea.Tick(time.Millisecond*50, func(time.Time) tea.Msg {
+					if m.streamChan != nil && !m.streamInterrupted {
+						nextToken, ok := <-m.streamChan
+						if ok && nextToken != "" {
+							return tokenMsg(nextToken)
+						}
+					}
+					return tokenMsg("done")
+				})
+			} else {
+				// Regular token - check if stream was interrupted
+				if m.streamInterrupted {
+					// Stream was interrupted, add pending message if available
+					if m.pendingMessage != nil {
+						m.messages = append(m.messages, *m.pendingMessage)
+						m.pendingMessage = nil
+					}
+					m.responseBuffer = ""
+					m.isThinking = false
+					m.streamChan = nil
+					m.streamInterrupted = false
+					m.currentResponse = nil
+					return m, nil
+				}
+
+				m.isThinking = false
+				m.responseBuffer += token
+				return m, tea.Tick(time.Millisecond*50, func(time.Time) tea.Msg {
+					if m.streamChan != nil && !m.streamInterrupted {
+						nextToken, ok := <-m.streamChan
+						if ok && nextToken != "" {
+							return tokenMsg(nextToken)
+						}
+					}
+					return tokenMsg("done")
+				})
+			}
 		}
 
 	// We handle errors just like any other message
