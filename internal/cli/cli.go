@@ -2,7 +2,9 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -13,8 +15,11 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/logkn/agents-go/internal/runner"
+	"github.com/logkn/agents-go/internal/tools"
 	"github.com/logkn/agents-go/internal/types"
 	"github.com/logkn/agents-go/internal/utils"
+	agents "github.com/logkn/agents-go/pkg"
 )
 
 const (
@@ -49,17 +54,6 @@ type responseModel struct {
 	spinner        spinner.Model
 }
 
-func initialResponseModel() responseModel {
-	s := spinner.New()
-	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color(ant))
-	return responseModel{
-		responseBuffer: "",
-		streamChan:     nil,
-		spinner:        s,
-	}
-}
-
 type model struct {
 	viewport        viewport.Model
 	messages        []types.Message
@@ -72,6 +66,7 @@ type model struct {
 	isThinking      bool
 	streamChan      chan string
 	streamSpinner   spinner.Model
+	agent           agents.Agent
 }
 
 func initialModel() model {
@@ -108,6 +103,16 @@ func initialModel() model {
 	ss := spinner.New()
 	ss.Spinner = responseSpinner
 
+	// Configure agent with silent logger
+	silentLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	agent := agents.Agent{
+		Name:         "Assistant",
+		Instructions: "You are a helpful assistant. Answer questions clearly and concisely.",
+		Tools:        []tools.Tool{}, // No tools for now
+		Model:        agents.ModelConfig{Model: "qwen3:30b-a3b", BaseUrl: "http://localhost:11434/v1"},
+		Logger:       silentLogger,
+	}
+
 	return model{
 		textarea:        ta,
 		textareaHeight:  1,
@@ -117,6 +122,7 @@ func initialModel() model {
 		err:             nil,
 		thinkingSpinner: ts,
 		streamSpinner:   ss,
+		agent:           agent,
 	}
 }
 
@@ -141,15 +147,34 @@ func renderMessage(msg types.Message) string {
 	}
 }
 
-func fakeResponse() chan string {
-	return utils.MockStream("This is a fake response from the AI.", 50)
-}
-
-func fakeResponseWithDelay() tea.Cmd {
+func (m *model) realAgentResponse() tea.Cmd {
 	return func() tea.Msg {
-		// mock some initial latency
-		time.Sleep(time.Millisecond * 500)
-		return streamReady(fakeResponse())
+		// Prepare conversation history - always include all messages
+		// The runner will handle adding system message if needed
+		input := runner.Input{OfMessages: m.messages}
+
+		// Run the agent
+		resp, err := runner.Run(m.agent, input)
+		if err != nil {
+			// Create a simple error channel
+			errorChan := make(chan string, 1)
+			errorChan <- "Error: " + err.Error()
+			close(errorChan)
+			return streamReady(errorChan)
+		}
+
+		// Convert agent stream to token channel
+		tokenChan := make(chan string, 100)
+		go func() {
+			defer close(tokenChan)
+			for event := range resp.Stream() {
+				if token, hasToken := event.Token(); hasToken && token != "" {
+					tokenChan <- token
+				}
+			}
+		}()
+
+		return streamReady(tokenChan)
 	}
 }
 
@@ -223,8 +248,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.textarea.Reset()
 			m.viewport.GotoBottom()
 
-			// fake stream from ai using fakeResponse with delay
-			return m, fakeResponseWithDelay()
+			// real stream from agent
+			return m, m.realAgentResponse()
 		}
 	case tea.MouseMsg:
 		if msg.Type == tea.MouseWheelUp {
