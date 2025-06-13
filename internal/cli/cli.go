@@ -55,19 +55,19 @@ type responseModel struct {
 }
 
 type model struct {
-	viewport         viewport.Model
-	messages         []types.Message
-	textarea         textarea.Model
-	textareaHeight   int
-	senderStyle      lipgloss.Style
-	err              error
-	thinkingSpinner  spinner.Model
-	responseBuffer   string
-	isThinking       bool
-	streamChan       chan string
-	streamSpinner    spinner.Model
+	viewport          viewport.Model
+	messages          []types.Message
+	textarea          textarea.Model
+	textareaHeight    int
+	senderStyle       lipgloss.Style
+	err               error
+	thinkingSpinner   spinner.Model
+	responseBuffer    string
+	isThinking        bool
+	streamChan        chan string
+	streamSpinner     spinner.Model
 	streamInterrupted bool
-	agent            agents.Agent
+	agent             agents.Agent
 }
 
 func initialModel() model {
@@ -313,7 +313,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.streamInterrupted = false
 				return m, nil
 			}
-			
+
 			m.isThinking = false
 			m.responseBuffer += string(msg)
 			return m, tea.Tick(time.Millisecond*50, func(time.Time) tea.Msg {
