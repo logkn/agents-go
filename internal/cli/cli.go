@@ -57,6 +57,7 @@ type model struct {
 	viewport        viewport.Model
 	messages        []types.Message
 	textarea        textarea.Model
+	textareaHeight  int
 	senderStyle     lipgloss.Style
 	err             error
 	thinkingSpinner spinner.Model
@@ -71,14 +72,18 @@ func initialModel() model {
 	ta.Placeholder = "Send a message..."
 	ta.Focus()
 
-	ta.Prompt = "┃ "
-	ta.CharLimit = 280
+	ta.Prompt = "> "
 
 	ta.SetWidth(30)
-	ta.SetHeight(3)
+	ta.SetHeight(1)
 
 	// Remove cursor line styling
 	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
+
+	// Add rounded border styling
+	ta.FocusedStyle.Base = lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(grayColor))
 
 	ta.ShowLineNumbers = false
 
@@ -97,6 +102,7 @@ func initialModel() model {
 
 	return model{
 		textarea:        ta,
+		textareaHeight:  1,
 		messages:        []types.Message{},
 		viewport:        vp,
 		senderStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color(grayColor)),
