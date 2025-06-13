@@ -146,98 +146,94 @@ func (m model) Init() tea.Cmd {
 	return tea.Batch(textarea.Blink, m.thinkingSpinner.Tick, m.streamSpinner.Tick)
 }
 
-func renderMarkdown(text string) string {
-	text = strings.TrimSpace(text)
+type ContentSegment struct {
+	Text       string
+	IsThinking bool
+}
 
-	// if it starts with a <think> tag but doesn't have a </think> tag
-	// we should add one at the end
+func normalizeThinkTags(text string) string {
+	text = strings.TrimSpace(text)
 	thinkStartRe := regexp.MustCompile(`<think>\s*`)
 	thinkEndRe := regexp.MustCompile(`\s*</think>`)
 
 	if thinkStartRe.MatchString(text) && !thinkEndRe.MatchString(text) {
 		text += "</think>"
 	}
+	return text
+}
 
-	// Parse text to separate thinking from non-thinking content
+func parseContentSegments(text string) []ContentSegment {
+	text = normalizeThinkTags(text)
+
 	thinkTagRe := regexp.MustCompile(`(?s)<think>\s*(.*?)\s*</think>`)
-	var result strings.Builder
-	lastEnd := 0
-
 	matches := thinkTagRe.FindAllStringSubmatchIndex(text, -1)
 
+	if len(matches) == 0 {
+		return []ContentSegment{{Text: text, IsThinking: false}}
+	}
+
+	var segments []ContentSegment
+	lastEnd := 0
+
 	for _, match := range matches {
-		// Add non-thinking content before this match
 		if match[0] > lastEnd {
-			nonThinkingContent := text[lastEnd:match[0]]
-			if strings.TrimSpace(nonThinkingContent) != "" {
-				if result.Len() > 0 {
-					result.WriteString("\n")
-				}
-				if mdRenderer != nil {
-					rendered, err := mdRenderer.Render(nonThinkingContent)
-					if err == nil {
-						result.WriteString(strings.TrimSpace(rendered))
-					} else {
-						result.WriteString(nonThinkingContent)
-					}
-				} else {
-					result.WriteString(nonThinkingContent)
-				}
+			content := text[lastEnd:match[0]]
+			if strings.TrimSpace(content) != "" {
+				segments = append(segments, ContentSegment{Text: content, IsThinking: false})
 			}
 		}
 
-		// Add thinking content with gray styling
 		thinkingContent := text[match[2]:match[3]]
 		if strings.TrimSpace(thinkingContent) != "" {
-			if result.Len() > 0 {
-				result.WriteString("\n")
-			}
-			grayStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(grayColor)).Italic(true)
-			if mdRenderer != nil {
-				rendered, err := mdRenderer.Render(thinkingContent)
-				if err == nil {
-					result.WriteString(grayStyle.Render(strings.TrimSpace(rendered)))
-				} else {
-					result.WriteString(grayStyle.Render(thinkingContent))
-				}
-			} else {
-				result.WriteString(grayStyle.Render(thinkingContent))
-			}
+			segments = append(segments, ContentSegment{Text: thinkingContent, IsThinking: true})
 		}
 
 		lastEnd = match[1]
 	}
 
-	// Add any remaining non-thinking content
 	if lastEnd < len(text) {
-		nonThinkingContent := text[lastEnd:]
-		if strings.TrimSpace(nonThinkingContent) != "" {
-			if result.Len() > 0 {
-				result.WriteString("\n")
-			}
-			if mdRenderer != nil {
-				rendered, err := mdRenderer.Render(nonThinkingContent)
-				if err == nil {
-					result.WriteString(strings.TrimSpace(rendered))
-				} else {
-					result.WriteString(nonThinkingContent)
-				}
-			} else {
-				result.WriteString(nonThinkingContent)
-			}
+		content := text[lastEnd:]
+		if strings.TrimSpace(content) != "" {
+			segments = append(segments, ContentSegment{Text: content, IsThinking: false})
 		}
 	}
 
-	// If no matches found, render as normal markdown
-	if len(matches) == 0 {
-		if mdRenderer == nil {
-			return text
+	return segments
+}
+
+func renderContent(content string, isThinking bool) string {
+	if mdRenderer == nil {
+		if isThinking {
+			return lipgloss.NewStyle().Foreground(lipgloss.Color(grayColor)).Italic(true).Render(content)
 		}
-		rendered, err := mdRenderer.Render(text)
-		if err != nil {
-			panic(err)
+		return content
+	}
+
+	rendered, err := mdRenderer.Render(content)
+	if err != nil {
+		rendered = content
+	} else {
+		rendered = strings.TrimSpace(rendered)
+	}
+
+	if isThinking {
+		return lipgloss.NewStyle().Foreground(lipgloss.Color(grayColor)).Italic(true).Render(rendered)
+	}
+	return rendered
+}
+
+func renderMarkdown(text string) string {
+	segments := parseContentSegments(text)
+	if len(segments) == 0 {
+		return ""
+	}
+
+	var result strings.Builder
+	for i, segment := range segments {
+		if i > 0 {
+			result.WriteString("\n")
 		}
-		return strings.TrimSpace(rendered)
+		result.WriteString(renderContent(segment.Text, segment.IsThinking))
 	}
 
 	return strings.TrimSpace(result.String())
