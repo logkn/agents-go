@@ -55,18 +55,19 @@ type responseModel struct {
 }
 
 type model struct {
-	viewport        viewport.Model
-	messages        []types.Message
-	textarea        textarea.Model
-	textareaHeight  int
-	senderStyle     lipgloss.Style
-	err             error
-	thinkingSpinner spinner.Model
-	responseBuffer  string
-	isThinking      bool
-	streamChan      chan string
-	streamSpinner   spinner.Model
-	agent           agents.Agent
+	viewport         viewport.Model
+	messages         []types.Message
+	textarea         textarea.Model
+	textareaHeight   int
+	senderStyle      lipgloss.Style
+	err              error
+	thinkingSpinner  spinner.Model
+	responseBuffer   string
+	isThinking       bool
+	streamChan       chan string
+	streamSpinner    spinner.Model
+	streamInterrupted bool
+	agent            agents.Agent
 }
 
 func initialModel() model {
@@ -240,6 +241,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC:
 			fmt.Println(m.textarea.Value())
 			return m, tea.Quit
+		case tea.KeyEsc:
+			// Escape key: interrupt stream if currently streaming
+			if m.streamChan != nil && !m.streamInterrupted {
+				// Set interrupt flag - let the goroutine close the channel
+				m.streamInterrupted = true
+				return m, nil
+			}
 		case tea.KeyEnter:
 			// Regular Enter: send user message
 			userMessage := types.NewUserMessage(m.textarea.Value())
@@ -261,6 +269,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case streamReady:
 		// Stream is ready, store the channel and start reading
 		m.streamChan = chan string(msg)
+		m.streamInterrupted = false // Reset interrupt flag for new stream
 		return m, func() tea.Msg {
 			return tokenMsg("start")
 		}
@@ -270,7 +279,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "start":
 			// Start streaming - get first token
 			return m, func() tea.Msg {
-				if m.streamChan != nil {
+				if m.streamChan != nil && !m.streamInterrupted {
 					token, ok := <-m.streamChan
 					if ok && token != "" {
 						m.isThinking = false
@@ -288,13 +297,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.isThinking = false
 			m.streamChan = nil
+			m.streamInterrupted = false
 			return m, nil
 		default:
-			// Regular token
+			// Regular token - check if stream was interrupted
+			if m.streamInterrupted {
+				// Stream was interrupted, finalize partial response
+				if len(m.responseBuffer) > 0 {
+					aiMessage := types.NewAssistantMessage(m.responseBuffer, "AI", []types.ToolCall{})
+					m.messages = append(m.messages, aiMessage)
+					m.responseBuffer = ""
+				}
+				m.isThinking = false
+				m.streamChan = nil
+				m.streamInterrupted = false
+				return m, nil
+			}
+			
 			m.isThinking = false
 			m.responseBuffer += string(msg)
 			return m, tea.Tick(time.Millisecond*50, func(time.Time) tea.Msg {
-				if m.streamChan != nil {
+				if m.streamChan != nil && !m.streamInterrupted {
 					token, ok := <-m.streamChan
 					if ok && token != "" {
 						return tokenMsg(token)
