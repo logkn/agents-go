@@ -71,9 +71,19 @@ func parseContentSegments(text string) []ContentSegment {
 func renderContent(content string, isThinking bool) string {
 	if mdRenderer == nil {
 		if isThinking {
-			return lipgloss.NewStyle().Foreground(lipgloss.Color(grayColor)).Italic(true).Render(content)
+			return lipgloss.NewStyle().Foreground(lipgloss.Color(gray)).Italic(true).Render(content)
 		}
 		return content
+	}
+
+	if isThinking {
+		// For thinking sections, apply gray color to all text including inline code
+		// We need to override the markdown renderer's color choices
+		thinkingStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(gray)).Italic(true)
+		
+		// Apply the thinking style to the raw content without markdown processing
+		// to ensure consistent gray coloring throughout
+		return thinkingStyle.Render(content)
 	}
 
 	rendered, err := mdRenderer.Render(content)
@@ -83,9 +93,6 @@ func renderContent(content string, isThinking bool) string {
 		rendered = strings.TrimSpace(rendered)
 	}
 
-	if isThinking {
-		return lipgloss.NewStyle().Foreground(lipgloss.Color(grayColor)).Italic(true).Render(rendered)
-	}
 	return rendered
 }
 

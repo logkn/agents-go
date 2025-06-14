@@ -39,9 +39,7 @@ func (h Handoff) description() string {
 	return h.defaultDescription()
 }
 
-type handoffToolArgs struct {
-	Prompt string `json:"prompt" description:"The request or message to pass to the agent"`
-}
+type handoffToolArgs struct{}
 
 func (h handoffToolArgs) Run() any {
 	return "handoff_executed"
