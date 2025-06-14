@@ -19,7 +19,7 @@ func TestNewInstance(t *testing.T) {
 }
 
 func TestAsString(t *testing.T) {
-	if AsString(nil) != "nil" {
+	if AsString(nil) != "[No tool output]" {
 		t.Fatalf("nil case failed")
 	}
 	if AsString("foo") != "foo" {

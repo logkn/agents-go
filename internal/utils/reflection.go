@@ -34,7 +34,7 @@ func NewInstance(v any) any {
 // appropriate.
 func AsString(v any) string {
 	if v == nil {
-		return "nil"
+		return "[No tool output]"
 	}
 
 	switch val := v.(type) {

@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"bytes"
 	"os"
 	"strings"
 )
@@ -82,11 +83,16 @@ type filewrite struct {
 }
 
 func (f filewrite) Run() any {
+	// if the file exists, error
+	if _, err := os.Stat(f.FilePath); err == nil {
+		return "File already exists. Use the `edit_file` tool to edit."
+	}
+
 	err := os.WriteFile(f.FilePath, []byte(f.Content), 0644)
 	if err != nil {
 		return err
 	}
-	return nil
+	return "Done! Please read the file to see the changes."
 }
 
 var FileWriteTool = Tool{
@@ -99,32 +105,38 @@ type patch struct {
 	FilePath  string `json:"file_path" description:"The path to the file to patch"`
 	OldString string `json:"old_string" description:"The string to replace"`
 	NewString string `json:"new_string" description:"The new string to replace the old string with"`
-	All       bool   `json:"all" description:"Whether to replace all occurrences of the old string"`
 }
 
 func (p patch) Run() any {
 	content, err := os.ReadFile(p.FilePath)
+
+	// if oldstring is not found, return an error
+	if !bytes.Contains(content, []byte(p.OldString)) {
+		return "Old string not found in file."
+	}
+
+	// if oldstring is empty, return an error
+	if p.OldString == "" {
+		return "old_string cannot be empty. (To append, consider a replacement A->AB)"
+	}
+
 	if err != nil {
 		return err
 	}
 
-	if p.All {
-		content = []byte(strings.ReplaceAll(string(content), p.OldString, p.NewString))
-	} else {
-		content = []byte(strings.Replace(string(content), p.OldString, p.NewString, 1))
-	}
+	content = []byte(strings.ReplaceAll(string(content), p.OldString, p.NewString))
 
 	err = os.WriteFile(p.FilePath, content, 0644)
 	if err != nil {
 		return err
 	}
-	return nil
+	return "Done! Please read the file to see the changes."
 }
 
 var PatchTool = Tool{
 	Args:        patch{},
-	Description: "Patches a file by replacing a string with another string.",
-	Name:        "patch",
+	Description: "Edit a file by doing a text replacement.",
+	Name:        "edit_file",
 }
 
 // type bash struct {

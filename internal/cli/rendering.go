@@ -80,7 +80,7 @@ func renderContent(content string, isThinking bool) string {
 		// For thinking sections, apply gray color to all text including inline code
 		// We need to override the markdown renderer's color choices
 		thinkingStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(gray)).Italic(true)
-		
+
 		// Apply the thinking style to the raw content without markdown processing
 		// to ensure consistent gray coloring throughout
 		return thinkingStyle.Render(content)

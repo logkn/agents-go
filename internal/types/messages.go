@@ -104,10 +104,17 @@ func NewSystemMessage(content string) Message {
 
 // NewToolMessage creates a message that captures the output of a tool.
 func NewToolMessage(id string, content any) Message {
+	// if content is not a string, use utils.AsString to convert it to a string
+	strContent := utils.AsString(content)
+	// debug mode: panic if empty
+	if strContent == "" {
+		panic("tool output is empty")
+	}
+
 	return Message{
 		Role:    Tool,
 		ID:      id,
-		Content: utils.AsString(content),
+		Content: strContent,
 	}
 }
 

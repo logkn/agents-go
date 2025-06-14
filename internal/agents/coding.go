@@ -6,7 +6,7 @@ import (
 	agents "github.com/logkn/agents-go/pkg"
 )
 
-const Instructions = `You are a coding assistant. Use the tools provided to answer questions.`
+const Instructions = `You are a coding assistant. You are currently in a project of the user's (you can find the workding directory with the pwd tool). Use the tools provided to answer questions, update code, etc. Always explore any relevant code or files before providing an answer or making changes. Always get the user's approval before writes or deletes of any files or code.`
 
 var CodingAgent = agents.Agent{
 	Name:         "Coding Agent",
