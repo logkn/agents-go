@@ -12,7 +12,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/logkn/agents-go/internal/runner"
-	"github.com/logkn/agents-go/internal/tools"
 	"github.com/logkn/agents-go/internal/types"
 
 	"github.com/logkn/agents-go/internal/utils"
@@ -376,25 +375,12 @@ func (s AppState) View() string {
 	)
 }
 
-// Other
+// executable
 
-var p = tea.NewProgram(initialModel(&agent), tea.WithMouseCellMotion())
+var p *tea.Program
 
-var agent = agents.Agent{
-	Name:         "Main Agent",
-	Instructions: "You are a helpful assistant. Use the tools provided to answer questions.",
-	Tools: []tools.Tool{
-		tools.SearchTool,
-		tools.PwdTool,
-	},
-	Model: types.ModelConfig{
-		Model:       "qwen3:30b-a3b",
-		BaseUrl:     "http://localhost:11434/v1",
-		Temperature: 0.6,
-	},
-}
-
-func RunTUI() {
+func RunTUI(agent agents.Agent) {
+	p = tea.NewProgram(initialModel(&agent), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}
