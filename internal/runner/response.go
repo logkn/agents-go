@@ -1,6 +1,10 @@
 package runner
 
-import "github.com/logkn/agents-go/internal/types"
+import (
+	"sync"
+
+	"github.com/logkn/agents-go/internal/types"
+)
 
 // AgentResponse collects all events produced during a run and exposes helper
 // methods to access them.
@@ -10,6 +14,9 @@ type AgentResponse struct {
 	// pastEvents stores everything that has already been observed.
 	pastEvents   []AgentEvent
 	pastMessages []types.Message
+	// closed tracks if the channel has been closed to prevent double-close
+	closed bool
+	mu     sync.Mutex
 }
 
 // newAgentResponse creates an AgentResponse bound to the provided channel.
@@ -18,6 +25,7 @@ func newAgentResponse(ch chan AgentEvent, pastMessages []types.Message) *AgentRe
 		events:       ch,
 		pastEvents:   []AgentEvent{},
 		pastMessages: pastMessages,
+		closed:       false,
 	}
 }
 
@@ -28,6 +36,9 @@ func (ar *AgentResponse) Stream() <-chan AgentEvent {
 	go func() {
 		defer close(outchan)
 		for event := range ar.events {
+			if ar.closed {
+				return
+			}
 			ar.pastEvents = append(ar.pastEvents, event)
 			outchan <- event
 		}
@@ -56,4 +67,13 @@ func (ar *AgentResponse) FinalConversation() []types.Message {
 	finalMessages := make([]types.Message, 0, len(ar.pastMessages)+len(ar.pastEvents))
 	finalMessages = append(finalMessages, ar.pastMessages...)
 	return finalMessages
+}
+
+func (ar *AgentResponse) Stop() {
+	// closes the event channel if not already
+	ar.mu.Lock()
+	defer ar.mu.Unlock()
+	if !ar.closed {
+		ar.closed = true
+	}
 }

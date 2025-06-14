@@ -239,7 +239,7 @@ func Run(agent types.Agent, input Input) (AgentResponse, error) {
 				}
 			}
 		}
-		close(eventChannel)
+		agentResponse.Stop()
 	}()
 
 	logger.Debug("agent run initiated successfully")

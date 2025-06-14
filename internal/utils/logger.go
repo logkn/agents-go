@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"io"
 	"log/slog"
 	"os"
 	"strings"
@@ -32,5 +33,11 @@ func SetupLogger() *slog.Logger {
 
 	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: logLevel,
+	}))
+}
+
+func NilLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{
+		Level: slog.LevelError + 1, // Above error level to suppress all logs
 	}))
 }
