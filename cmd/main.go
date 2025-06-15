@@ -1,3 +1,5 @@
+// Command agents-tui starts a simple terminal user interface demonstrating how
+// to interact with an Agent.
 package main
 
 import (

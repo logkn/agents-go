@@ -89,8 +89,9 @@ func isValidTagName(name string) bool {
 	return true
 }
 
-// Yields the same stream, but with XML opening and closing tags
-// grouped as one string part.
+// GroupXML reads a stream of strings and groups any XML tags so that opening
+// and closing tags are emitted as single chunks. This makes it easier to render
+// streamed output without breaking tag boundaries.
 func GroupXML(stream chan string) chan string {
 	output := make(chan string)
 
@@ -147,11 +148,17 @@ func GroupXML(stream chan string) chan string {
 	return output
 }
 
+// Token represents a chunk of streamed text. If IsThinking is true the content
+// originated from inside a `<think>` tag and should be rendered in a special
+// style by consumers.
 type Token struct {
 	Content    string
 	IsThinking bool
 }
 
+// DetectThinking reads a stream of strings and emits Tokens which are annotated
+// with whether the text was inside `<think>` tags. This is useful when streaming
+// assistant responses that mix regular output with "thinking" sections.
 func DetectThinking(stream chan string) chan Token {
 	output := make(chan Token)
 

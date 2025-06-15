@@ -1,3 +1,6 @@
+// Package cli implements a simple terminal user interface for interacting with
+// an Agent. It streams assistant responses and renders them using the
+// BubbleTea framework.
 package cli
 
 import (
@@ -377,8 +380,11 @@ func (s AppState) View() string {
 
 // executable
 
+// p holds the running BubbleTea program instance.
 var p *tea.Program
 
+// RunTUI launches an interactive terminal UI for the given Agent. The function
+// blocks until the user exits the interface.
 func RunTUI(agent agents.Agent) {
 	p = tea.NewProgram(initialModel(&agent), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
@@ -386,6 +392,9 @@ func RunTUI(agent agents.Agent) {
 	}
 }
 
+// StreamAgent starts an agent run using the provided conversation history and
+// returns the streaming response handle. The caller is responsible for reading
+// from the returned AgentResponse.
 func StreamAgent(agent *agents.Agent, messages []types.Message) *runner.AgentResponse {
 	agentResponse, err := runner.Run(*agent, runner.Input{OfMessages: messages})
 	if err != nil {

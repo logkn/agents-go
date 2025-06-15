@@ -89,6 +89,9 @@ func renderContent(content string, isThinking bool) string {
 	return rendered
 }
 
+// RenderMarkdown converts markdown text into styled terminal output. It also
+// detects `<think>` tags and renders their contents in an italic "thinking"
+// style.
 func RenderMarkdown(text string) string {
 	segments := parseContentSegments(text)
 	if len(segments) == 0 {
