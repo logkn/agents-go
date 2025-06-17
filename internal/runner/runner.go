@@ -53,7 +53,7 @@ func isHandoffTool(agent types.Agent, toolName string) bool {
 // If input.OfMessages is provided it is treated as the existing conversation
 // history. Otherwise a new conversation is started with input.OfString as the
 // user prompt.
-func Run(agent types.Agent, input Input) (AgentResponse, error) {
+func Run(ctx context.Context, agent types.Agent, input Input) (AgentResponse, error) {
 	logger := agent.Logger
 	if logger == nil {
 		logger = slog.Default()
@@ -64,6 +64,14 @@ func Run(agent types.Agent, input Input) (AgentResponse, error) {
 		"model", agent.Model.Model,
 		"num_tools", len(agent.Tools),
 		"has_existing_messages", len(input.OfMessages) > 0)
+
+	// Execute BeforeRun hook
+	if agent.Hooks != nil && agent.Hooks.BeforeRun != nil {
+		if err := agent.Hooks.BeforeRun(agent.Context); err != nil {
+			logger.Error("BeforeRun hook failed", "error", err)
+			return AgentResponse{}, fmt.Errorf("BeforeRun hook failed: %w", err)
+		}
+	}
 
 	var messages []types.Message
 	switch {
@@ -93,7 +101,7 @@ func Run(agent types.Agent, input Input) (AgentResponse, error) {
 	// 	return AgentResponse{}, err
 	// }
 
-	allTools := append(agent.Tools, agent.HandoffTools()...)
+	allTools := agent.AllToolsWithContext()
 	openAITools := make([]openai.ChatCompletionToolParam, len(allTools))
 	for i, tool := range allTools {
 		openAITools[i] = tool.ToOpenAITool()
@@ -203,7 +211,7 @@ func Run(agent types.Agent, input Input) (AgentResponse, error) {
 					messages = append(messages, types.NewUserMessage(args.Prompt))
 
 					// Update tool list for the new agent
-					allTools = append(agent.Tools, agent.HandoffTools()...)
+					allTools = agent.AllToolsWithContext()
 					openAITools = make([]openai.ChatCompletionToolParam, len(allTools))
 					for i, tool := range allTools {
 						openAITools[i] = tool.ToOpenAITool()
@@ -218,7 +226,30 @@ func Run(agent types.Agent, input Input) (AgentResponse, error) {
 				for _, tool := range allTools {
 					if tool.CompleteName() == funcname {
 						toolFound = true
-						result := tool.RunOnArgs(toolcall.Args)
+						
+						// Execute BeforeToolCall hook
+						if agent.Hooks != nil && agent.Hooks.BeforeToolCall != nil {
+							if err := agent.Hooks.BeforeToolCall(agent.Context, funcname, toolcall.Args); err != nil {
+								logger.Error("BeforeToolCall hook failed", "error", err, "tool_name", funcname)
+								continue
+							}
+						}
+						
+						var result any
+						// Use contextual execution if tool has context, otherwise use regular execution
+						if tool.Context != nil {
+							result = tool.RunOnArgsWithContext(toolcall.Args)
+						} else {
+							result = tool.RunOnArgs(toolcall.Args)
+						}
+						
+						// Execute AfterToolCall hook
+						if agent.Hooks != nil && agent.Hooks.AfterToolCall != nil {
+							if err := agent.Hooks.AfterToolCall(agent.Context, funcname, result); err != nil {
+								logger.Error("AfterToolCall hook failed", "error", err, "tool_name", funcname)
+							}
+						}
+						
 						logger.Info("tool execution completed",
 							"tool_name", funcname,
 							"tool_call_id", toolcall.ID)
@@ -239,6 +270,24 @@ func Run(agent types.Agent, input Input) (AgentResponse, error) {
 				}
 			}
 		}
+		
+		// Execute AfterRun hook before stopping
+		if agent.Hooks != nil && agent.Hooks.AfterRun != nil {
+			// Get the final response content for the hook
+			finalResponse := ""
+			if len(messages) > 0 {
+				for i := len(messages) - 1; i >= 0; i-- {
+					if messages[i].Role == types.Assistant && messages[i].Content != "" {
+						finalResponse = messages[i].Content
+						break
+					}
+				}
+			}
+			if err := agent.Hooks.AfterRun(agent.Context, finalResponse); err != nil {
+				logger.Error("AfterRun hook failed", "error", err)
+			}
+		}
+		
 		agentResponse.Stop()
 	}()
 

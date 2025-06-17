@@ -1,6 +1,9 @@
 # Makefile for Go project
 .PHONY: all build test run debug format check
 
+build:
+	go build ./...
+
 run:
 	GOEXPERIMENT=aliastypeparams LOG_LEVEL=ERROR go run cmd/*.go
 

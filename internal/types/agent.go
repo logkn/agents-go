@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/logkn/agents-go/internal/context"
 	"github.com/logkn/agents-go/internal/tools"
 	"github.com/stoewer/go-strcase"
 )
@@ -55,6 +56,18 @@ type Agent struct {
 	Model        ModelConfig
 	Handoffs     []Handoff
 	Logger       *slog.Logger
+	// Context holds the execution context for this agent and its tools
+	Context context.AnyContext
+	// Hooks define optional lifecycle callbacks
+	Hooks *LifecycleHooks
+}
+
+// LifecycleHooks defines optional hooks that can be called during agent execution.
+type LifecycleHooks struct {
+	BeforeRun      func(ctx context.AnyContext) error
+	AfterRun       func(ctx context.AnyContext, result any) error
+	BeforeToolCall func(ctx context.AnyContext, toolName string, args string) error
+	AfterToolCall  func(ctx context.AnyContext, toolName string, result any) error
 }
 
 func (a *Agent) HandoffTools() []tools.Tool {
@@ -67,4 +80,26 @@ func (a *Agent) HandoffTools() []tools.Tool {
 		}
 	}
 	return handoffTools
+}
+
+// PrepareToolsWithContext creates a new slice of tools with the agent's context applied.
+// This ensures all tools have access to the same execution context.
+func (a *Agent) PrepareToolsWithContext() []tools.Tool {
+	if a.Context == nil {
+		return a.Tools
+	}
+	
+	contextualTools := make([]tools.Tool, len(a.Tools))
+	for i, tool := range a.Tools {
+		contextualTools[i] = tool
+		contextualTools[i].Context = a.Context
+	}
+	return contextualTools
+}
+
+// AllToolsWithContext returns all tools (regular + handoff) with context applied.
+func (a *Agent) AllToolsWithContext() []tools.Tool {
+	regularTools := a.PrepareToolsWithContext()
+	handoffTools := a.HandoffTools()
+	return append(regularTools, handoffTools...)
 }
