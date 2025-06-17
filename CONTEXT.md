@@ -192,6 +192,90 @@ configCtx := agents.NewContext(ConfigContext{
 - `NewTool(name, description string, args ToolArgs) Tool` - Create basic tool
 - `NewContextualTool[T](name, description string, args AnyContextualToolArgs, ctx Context[T]) Tool` - Create contextual tool
 
+## Thread Safety
+
+The context system provides thread-safe wrappers for concurrent access:
+
+### ThreadSafeContext
+
+```go
+// Create a thread-safe context
+ctx := agents.NewContext(UserData{UserID: "123"})
+tsCtx := agents.NewThreadSafeContext(ctx)
+
+// Safe concurrent access
+go func() {
+    value := tsCtx.Value() // Read with RLock
+    // Use value...
+}()
+
+go func() {
+    newCtx := agents.NewContext(UserData{UserID: "456"})
+    tsCtx.Update(newCtx) // Write with Lock
+}()
+```
+
+### Thread Safety Guarantees
+
+- All context read operations use RWMutex read locks
+- Context updates use write locks
+- The framework ensures thread-safe access during concurrent agent execution
+- Tools accessing context are safe to run concurrently
+
+## Context Composition
+
+The context system supports composition patterns for complex scenarios:
+
+### CompositeContext
+
+Holds multiple contexts of different types:
+
+```go
+composite := agents.NewCompositeContext()
+
+// Add different context types
+composite.AddTyped(agents.NewContext(UserData{UserID: "123"}))
+composite.AddTyped(agents.NewContext(DBConnection{DB: db}))
+composite.AddTyped(agents.NewContext(APIConfig{Key: "secret"}))
+
+// Retrieve specific types
+userCtx, _ := composite.Get[UserData]()
+dbCtx, _ := composite.Get[DBConnection]()
+
+// Check existence
+if composite.Has[APIConfig]() {
+    // API config is available
+}
+```
+
+### ContextChain
+
+Provides fallback behavior with priority ordering:
+
+```go
+// Create contexts with different scopes
+globalCtx := agents.NewContext(GlobalConfig{...})
+sessionCtx := agents.NewContext(SessionData{...})
+requestCtx := agents.NewContext(RequestData{...})
+
+// Chain with priority (first = highest)
+chain := agents.NewContextChain(
+    agents.ToAnyContext(requestCtx),  // Highest priority
+    agents.ToAnyContext(sessionCtx),   // Medium priority
+    agents.ToAnyContext(globalCtx),    // Lowest priority
+)
+
+// Find will return the first matching type
+ctx, err := chain.Find[SessionData]()
+```
+
+### Use Cases for Composition
+
+1. **Multi-tenant applications**: Combine user, tenant, and system contexts
+2. **Request handling**: Layer request, session, and application contexts
+3. **Resource management**: Group database, cache, and API client contexts
+4. **Feature flags**: Combine user preferences with system defaults
+
 ## Design Principles
 
 1. **Type Safety**: Generic context ensures compile-time type checking
@@ -199,7 +283,12 @@ configCtx := agents.NewContext(ConfigContext{
 3. **Fallback Support**: Tools work with or without context
 4. **Consistency**: Same context type across entire agent execution chain
 5. **Flexibility**: Support for any context type (structs, primitives, interfaces)
+6. **Thread Safety**: Built-in support for concurrent access patterns
+7. **Composability**: Support for complex context hierarchies and inheritance
 
 ## Examples
 
-See `examples/context_demo.go` and `examples/simple_context_demo.go` for complete working examples.
+See the following examples for complete implementations:
+- `examples/context-demo/main.go` - Basic context usage
+- `examples/simple-context-demo/main.go` - Simple context patterns
+- Tests in `internal/context/*_test.go` - Advanced patterns and thread safety

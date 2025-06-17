@@ -76,26 +76,61 @@ func (c *contextWrapper) IsNil() bool {
 	return c.isNilFunc()
 }
 
+// ContextError represents an error that occurred during context operations.
+type ContextError struct {
+	Op       string // Operation that failed
+	Expected string // Expected type
+	Got      string // Actual type
+	Err      error  // Underlying error
+}
+
+func (e *ContextError) Error() string {
+	if e.Expected != "" && e.Got != "" {
+		return fmt.Sprintf("context error in %s: type mismatch (expected %s, got %s)", e.Op, e.Expected, e.Got)
+	}
+	if e.Err != nil {
+		return fmt.Sprintf("context error in %s: %v", e.Op, e.Err)
+	}
+	return fmt.Sprintf("context error in %s", e.Op)
+}
+
+func (e *ContextError) Unwrap() error {
+	return e.Err
+}
+
 // FromAnyContext attempts to convert an AnyContext back to a typed Context[T].
 // Returns an error if the types don't match.
 func FromAnyContext[T any](anyCtx AnyContext) (Context[T], error) {
 	if anyCtx == nil {
-		return nil, fmt.Errorf("anyContext is nil")
+		return nil, &ContextError{
+			Op:  "FromAnyContext",
+			Err: fmt.Errorf("anyContext is nil"),
+		}
 	}
 	
 	expectedType := reflect.TypeOf((*T)(nil)).Elem().String()
 	if anyCtx.TypeName() != expectedType {
-		return nil, fmt.Errorf("context type mismatch: expected %s, got %s", expectedType, anyCtx.TypeName())
+		return nil, &ContextError{
+			Op:       "FromAnyContext",
+			Expected: expectedType,
+			Got:      anyCtx.TypeName(),
+		}
 	}
 	
 	wrapper, ok := anyCtx.(*contextWrapper)
 	if !ok {
-		return nil, fmt.Errorf("invalid context wrapper type")
+		return nil, &ContextError{
+			Op:  "FromAnyContext",
+			Err: fmt.Errorf("invalid context wrapper type: got %T", anyCtx),
+		}
 	}
 	
 	ctx, ok := wrapper.ctx.(Context[T])
 	if !ok {
-		return nil, fmt.Errorf("failed to cast context to expected type")
+		return nil, &ContextError{
+			Op:  "FromAnyContext",
+			Err: fmt.Errorf("failed to cast context to expected type %s", expectedType),
+		}
 	}
 	
 	return ctx, nil
