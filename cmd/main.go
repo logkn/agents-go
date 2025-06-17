@@ -6,5 +6,5 @@ import (
 )
 
 func main() {
-	cli.RunTUI(agents.CodingAgent)
+	cli.RunTUI(agents.CodingAgent, true)
 }

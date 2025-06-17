@@ -45,9 +45,9 @@ type UIMessage struct {
 	types.Message
 }
 
-func (m UIMessage) View() string {
+func (m UIMessage) RenderMessage(hideThoughts bool) string {
 	msg := m.Message
-	content := RenderMarkdown(msg.Content)
+	content := RenderMarkdown(msg.Content, hideThoughts)
 	switch msg.Role {
 	case types.User:
 		return lipgloss.NewStyle().Foreground(lipgloss.Color(gray)).Render("> " + content)
@@ -112,10 +112,10 @@ type MessageAreaItem struct {
 	OfTool    *CallAndResponse
 }
 
-func (item MessageAreaItem) View() string {
+func (item MessageAreaItem) View(hideThoughts bool) string {
 	switch {
 	case item.OfMessage != nil:
-		return item.OfMessage.View()
+		return item.OfMessage.RenderMessage(hideThoughts)
 	case item.OfTool != nil:
 		return item.OfTool.View()
 	}
@@ -130,6 +130,7 @@ type AppState struct {
 	responseBuffer string
 	agent          *agents.Agent
 	streamHandler  StreamHandler
+	hideThoughts   bool
 }
 
 func (s *AppState) pushMessage(msg types.Message) {
@@ -180,12 +181,13 @@ func initialComponents() AppStateComponents {
 	}
 }
 
-func initialModel(agent *agents.Agent) AppState {
+func initialModel(agent *agents.Agent, hideThoughts bool) AppState {
 	agent.Logger = utils.NilLogger()
 	return AppState{
-		components: initialComponents(),
-		messages:   []types.Message{},
-		agent:      agent,
+		components:   initialComponents(),
+		messages:     []types.Message{},
+		agent:        agent,
+		hideThoughts: hideThoughts,
 	}
 }
 
@@ -257,14 +259,14 @@ func (s *AppState) refreshViewport() {
 	vp := &s.components.viewport
 
 	lines := utils.MapSlice(s.items, func(item MessageAreaItem) string {
-		return item.View()
+		return item.View(s.hideThoughts)
 	})
 
 	// Add current response buffer as temporary content without modifying s.items
 	if len(s.responseBuffer) > 0 {
 		respMessage := types.NewAssistantMessage(s.responseBuffer, s.agent.Name, []types.ToolCall{})
 		uiMessage := UIMessage{respMessage}
-		lines = append(lines, uiMessage.View())
+		lines = append(lines, uiMessage.RenderMessage(s.hideThoughts))
 	}
 
 	content := strings.Join(lines, gap)
@@ -379,8 +381,8 @@ func (s AppState) View() string {
 
 var p *tea.Program
 
-func RunTUI(agent agents.Agent) {
-	p = tea.NewProgram(initialModel(&agent), tea.WithMouseCellMotion())
+func RunTUI(agent agents.Agent, hideThoughts bool) {
+	p = tea.NewProgram(initialModel(&agent, hideThoughts), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}

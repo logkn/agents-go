@@ -68,22 +68,36 @@ func parseContentSegments(text string) []ContentSegment {
 	return segments
 }
 
-func renderContent(content string, isThinking bool) string {
+func renderContent(content string, isThinking bool, hideThoughts bool) string {
 	if mdRenderer == nil {
 		if isThinking {
-			return lipgloss.NewStyle().Foreground(lipgloss.Color(gray)).Italic(true).Render(content)
+			var renderContent string
+			if hideThoughts {
+				renderContent = "Thinking..."
+			} else {
+				renderContent = content
+			}
+
+			return lipgloss.NewStyle().Foreground(lipgloss.Color(gray)).Italic(true).Render(renderContent)
 		}
 		return content
 	}
 
 	if isThinking {
+
+		var renderContent string
+		if hideThoughts {
+			renderContent = "Thinking..."
+		} else {
+			renderContent = content
+		}
 		// For thinking sections, apply gray color to all text including inline code
 		// We need to override the markdown renderer's color choices
 		thinkingStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(gray)).Italic(true)
 
 		// Apply the thinking style to the raw content without markdown processing
 		// to ensure consistent gray coloring throughout
-		return thinkingStyle.Render(content)
+		return thinkingStyle.Render(renderContent)
 	}
 
 	rendered, err := mdRenderer.Render(content)
@@ -96,7 +110,7 @@ func renderContent(content string, isThinking bool) string {
 	return rendered
 }
 
-func RenderMarkdown(text string) string {
+func RenderMarkdown(text string, hideThoughts bool) string {
 	segments := parseContentSegments(text)
 	if len(segments) == 0 {
 		return ""
@@ -107,7 +121,7 @@ func RenderMarkdown(text string) string {
 		if i > 0 {
 			result.WriteString("\n")
 		}
-		result.WriteString(renderContent(segment.Text, segment.IsThinking))
+		result.WriteString(renderContent(segment.Text, segment.IsThinking, hideThoughts))
 	}
 
 	return strings.TrimSpace(result.String())
