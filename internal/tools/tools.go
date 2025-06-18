@@ -28,8 +28,6 @@ type Tool struct {
 	Name        string
 	Description string
 	Args        ToolArgs
-	// Context holds the execution context if this tool requires it
-	Context context.AnyContext
 }
 
 // CompleteName returns the explicit name if set or derives one from the
@@ -89,9 +87,9 @@ func (t Tool) RunOnArgs(args string) any {
 
 // RunOnArgsWithContext unmarshals the provided JSON arguments and executes the tool with context.
 // This method should be used when the tool requires access to the execution context.
-func (t Tool) RunOnArgsWithContext(args string) any {
-	if t.Context == nil {
-		slog.Warn("tool has no context but RunOnArgsWithContext was called", "tool_name", t.CompleteName())
+func (t Tool) RunOnArgsWithContext(args string, globalContext context.AnyContext) any {
+	if globalContext == nil {
+		slog.Warn("no global context provided but RunOnArgsWithContext was called", "tool_name", t.CompleteName())
 		return t.RunOnArgs(args)
 	}
 
@@ -110,14 +108,14 @@ func (t Tool) RunOnArgsWithContext(args string) any {
 		}
 	}
 
-	slog.Debug("executing contextual tool", "tool_name", t.CompleteName(), "context_type", t.Context.TypeName())
-	
+	slog.Debug("executing contextual tool", "tool_name", t.CompleteName(), "context_type", globalContext.TypeName())
+
 	// Try to execute as contextual tool first, fallback to regular tool
-	if result, ok := t.tryRunWithContext(argsInstance); ok {
+	if result, ok := t.tryRunWithContext(argsInstance, globalContext); ok {
 		slog.Debug("contextual tool execution completed", "tool_name", t.CompleteName())
 		return result
 	}
-	
+
 	// Fallback to regular tool execution
 	slog.Debug("contextual execution failed, falling back to regular execution", "tool_name", t.CompleteName())
 	if toolArgs, ok := argsInstance.(ToolArgs); ok {
@@ -125,7 +123,7 @@ func (t Tool) RunOnArgsWithContext(args string) any {
 		slog.Debug("tool execution completed (fallback)", "tool_name", t.CompleteName())
 		return result
 	}
-	
+
 	return map[string]any{
 		"error": "Tool does not implement ToolArgs interface",
 		"tool":  t.CompleteName(),
@@ -133,13 +131,13 @@ func (t Tool) RunOnArgsWithContext(args string) any {
 }
 
 // tryRunWithContext attempts to run the tool with context using reflection to handle the generic type.
-func (t Tool) tryRunWithContext(argsInstance any) (any, bool) {
+func (t Tool) tryRunWithContext(argsInstance any, globalContext context.AnyContext) (any, bool) {
 	// Check if the args instance implements AnyContextualToolArgs
 	if contextualTool, ok := argsInstance.(AnyContextualToolArgs); ok {
-		result := contextualTool.RunWithAnyContext(t.Context)
+		result := contextualTool.RunWithAnyContext(globalContext)
 		return result, true
 	}
-	
+
 	return nil, false
 }
 
@@ -156,15 +154,5 @@ func NewTool(name, description string, args ToolArgs) Tool {
 		Name:        name,
 		Description: description,
 		Args:        args,
-	}
-}
-
-// NewContextualTool creates a new tool with context support.
-func NewContextualTool[T any](name, description string, args AnyContextualToolArgs, ctx context.Context[T]) Tool {
-	return Tool{
-		Name:        name,
-		Description: description,
-		Args:        args,
-		Context:     context.ToAnyContext(ctx),
 	}
 }

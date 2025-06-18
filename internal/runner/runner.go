@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
+	agentcontext "github.com/logkn/agents-go/internal/context"
 	"github.com/logkn/agents-go/internal/types"
 	"github.com/logkn/agents-go/internal/utils"
 	"github.com/openai/openai-go"
@@ -53,7 +54,8 @@ func isHandoffTool(agent types.Agent, toolName string) bool {
 // If input.OfMessages is provided it is treated as the existing conversation
 // history. Otherwise a new conversation is started with input.OfString as the
 // user prompt.
-func Run(agent types.Agent, input Input, ctx context.Context) (AgentResponse, error) {
+// The globalContext parameter provides shared state accessible to all tools during execution.
+func Run(agent types.Agent, input Input, ctx context.Context, globalContext agentcontext.AnyContext) (AgentResponse, error) {
 	logger := agent.Logger
 	if logger == nil {
 		logger = slog.Default()
@@ -67,7 +69,7 @@ func Run(agent types.Agent, input Input, ctx context.Context) (AgentResponse, er
 
 	// Execute BeforeRun hook
 	if agent.Hooks != nil && agent.Hooks.BeforeRun != nil {
-		if err := agent.Hooks.BeforeRun(agent.Context); err != nil {
+		if err := agent.Hooks.BeforeRun(globalContext); err != nil {
 			logger.Error("BeforeRun hook failed", "error", err)
 			return AgentResponse{}, fmt.Errorf("BeforeRun hook failed: %w", err)
 		}
@@ -101,7 +103,7 @@ func Run(agent types.Agent, input Input, ctx context.Context) (AgentResponse, er
 	// 	return AgentResponse{}, err
 	// }
 
-	allTools := agent.AllToolsWithContext()
+	allTools := agent.AllTools()
 	openAITools := make([]openai.ChatCompletionToolParam, len(allTools))
 	for i, tool := range allTools {
 		openAITools[i] = tool.ToOpenAITool()
@@ -211,7 +213,7 @@ func Run(agent types.Agent, input Input, ctx context.Context) (AgentResponse, er
 					messages = append(messages, types.NewUserMessage(args.Prompt))
 
 					// Update tool list for the new agent
-					allTools = agent.AllToolsWithContext()
+					allTools = agent.AllTools()
 					openAITools = make([]openai.ChatCompletionToolParam, len(allTools))
 					for i, tool := range allTools {
 						openAITools[i] = tool.ToOpenAITool()
@@ -229,23 +231,23 @@ func Run(agent types.Agent, input Input, ctx context.Context) (AgentResponse, er
 
 						// Execute BeforeToolCall hook
 						if agent.Hooks != nil && agent.Hooks.BeforeToolCall != nil {
-							if err := agent.Hooks.BeforeToolCall(agent.Context, funcname, toolcall.Args); err != nil {
+							if err := agent.Hooks.BeforeToolCall(globalContext, funcname, toolcall.Args); err != nil {
 								logger.Error("BeforeToolCall hook failed", "error", err, "tool_name", funcname)
 								continue
 							}
 						}
 
 						var result any
-						// Use contextual execution if tool has context, otherwise use regular execution
-						if tool.Context != nil {
-							result = tool.RunOnArgsWithContext(toolcall.Args)
+						// Use contextual execution if global context is provided, otherwise use regular execution
+						if globalContext != nil {
+							result = tool.RunOnArgsWithContext(toolcall.Args, globalContext)
 						} else {
 							result = tool.RunOnArgs(toolcall.Args)
 						}
 
 						// Execute AfterToolCall hook
 						if agent.Hooks != nil && agent.Hooks.AfterToolCall != nil {
-							if err := agent.Hooks.AfterToolCall(agent.Context, funcname, result); err != nil {
+							if err := agent.Hooks.AfterToolCall(globalContext, funcname, result); err != nil {
 								logger.Error("AfterToolCall hook failed", "error", err, "tool_name", funcname)
 							}
 						}
@@ -283,7 +285,7 @@ func Run(agent types.Agent, input Input, ctx context.Context) (AgentResponse, er
 					}
 				}
 			}
-			if err := agent.Hooks.AfterRun(agent.Context, finalResponse); err != nil {
+			if err := agent.Hooks.AfterRun(globalContext, finalResponse); err != nil {
 				logger.Error("AfterRun hook failed", "error", err)
 			}
 		}

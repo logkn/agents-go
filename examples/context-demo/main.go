@@ -11,9 +11,9 @@ import (
 
 // UserContext demonstrates a custom context type for user-specific data
 type UserContext struct {
-	UserID    string
-	UserName  string
-	SessionID string
+	UserID      string
+	UserName    string
+	SessionID   string
 	Preferences map[string]string
 }
 
@@ -32,13 +32,13 @@ func (g greetingTool) RunWithAnyContext(ctx agents.AnyContext) any {
 	if ctx == nil {
 		return g.Run()
 	}
-	
+
 	// Try to convert to our expected context type
 	userCtx, err := agents.FromAnyContext[UserContext](ctx)
 	if err != nil {
 		return g.Run() // Fallback to non-contextual
 	}
-	
+
 	user := userCtx.Value()
 	return fmt.Sprintf("Hello %s (ID: %s)! %s", user.UserName, user.UserID, g.Message)
 }
@@ -54,14 +54,14 @@ func (u userInfoTool) RunWithAnyContext(ctx agents.AnyContext) any {
 	if ctx == nil {
 		return u.Run()
 	}
-	
+
 	userCtx, err := agents.FromAnyContext[UserContext](ctx)
 	if err != nil {
 		return u.Run()
 	}
-	
+
 	user := userCtx.Value()
-	return fmt.Sprintf("User: %s (ID: %s), Session: %s, Preferences: %v", 
+	return fmt.Sprintf("User: %s (ID: %s), Session: %s, Preferences: %v",
 		user.UserName, user.UserID, user.SessionID, user.Preferences)
 }
 
@@ -144,7 +144,7 @@ func main() {
 
 	// Demonstrate the context system
 	fmt.Println("=== Context-Aware Agent Demo ===")
-	
+
 	// Run the agent with a request that will use context
 	response, err := agents.Run(context.Background(), agent, agents.Input{
 		OfString: "Hi! Can you greet me personally and tell me about my user information?",
@@ -167,10 +167,10 @@ func main() {
 	}
 
 	fmt.Printf("\n\nFinal response: %s\n", response.Response().Content)
-	
+
 	// Demonstrate without context (create a new agent without context)
 	fmt.Println("\n=== Without Context Demo ===")
-	
+
 	agentNoContext := agents.NewAgent(config)
 	// Add tools without context
 	regularGreeting := agents.NewTool("greeting", "Provides a basic greeting", &greetingTool{})

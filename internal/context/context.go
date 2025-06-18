@@ -107,7 +107,7 @@ func FromAnyContext[T any](anyCtx AnyContext) (Context[T], error) {
 			Err: fmt.Errorf("anyContext is nil"),
 		}
 	}
-	
+
 	expectedType := reflect.TypeOf((*T)(nil)).Elem().String()
 	if anyCtx.TypeName() != expectedType {
 		return nil, &ContextError{
@@ -116,7 +116,7 @@ func FromAnyContext[T any](anyCtx AnyContext) (Context[T], error) {
 			Got:      anyCtx.TypeName(),
 		}
 	}
-	
+
 	wrapper, ok := anyCtx.(*contextWrapper)
 	if !ok {
 		return nil, &ContextError{
@@ -124,7 +124,7 @@ func FromAnyContext[T any](anyCtx AnyContext) (Context[T], error) {
 			Err: fmt.Errorf("invalid context wrapper type: got %T", anyCtx),
 		}
 	}
-	
+
 	ctx, ok := wrapper.ctx.(Context[T])
 	if !ok {
 		return nil, &ContextError{
@@ -132,7 +132,7 @@ func FromAnyContext[T any](anyCtx AnyContext) (Context[T], error) {
 			Err: fmt.Errorf("failed to cast context to expected type %s", expectedType),
 		}
 	}
-	
+
 	return ctx, nil
 }
 

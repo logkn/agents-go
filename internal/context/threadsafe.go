@@ -7,8 +7,8 @@ import (
 
 // ThreadSafeContext wraps a context with a read-write mutex for thread-safe access.
 type ThreadSafeContext[T any] struct {
-	mu   sync.RWMutex
-	ctx  Context[T]
+	mu  sync.RWMutex
+	ctx Context[T]
 }
 
 // NewThreadSafeContext creates a new thread-safe context wrapper.

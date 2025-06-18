@@ -53,22 +53,21 @@ func main() {
 		sessionCtx,
 	)
 
-	// Create agent with context
+	// Create agent
 	agent := types.Agent{
 		Name:         "Session Agent",
 		Instructions: "You are an assistant that can access session information. Use the session_info tool when asked about the current session.",
 		Model: types.ModelConfig{
 			Model: "gpt-4o-mini",
 		},
-		Tools:   []agents.Tool{sessionTool},
-		Context: agents.ToAnyContext(sessionCtx),
-		Logger:  slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})),
+		Tools:  []agents.Tool{sessionTool},
+		Logger: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})),
 	}
 
-	// Run agent
+	// Run agent with global context
 	response, err := runner.Run(agent, runner.Input{
 		OfString: "What's my current session information?",
-	}, context.Background())
+	}, context.Background(), agents.ToAnyContext(sessionCtx))
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -83,4 +82,3 @@ func main() {
 
 	fmt.Printf("\n\nFinal response: %s\n", response.Response().Content)
 }
-

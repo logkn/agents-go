@@ -32,49 +32,49 @@ func (q QueryTool) RunWithAnyContext(ctx agents.AnyContext) any {
 	if ctx == nil {
 		return q.Run()
 	}
-	
+
 	dbCtx, err := agents.FromAnyContext[DBContext](ctx)
 	if err != nil {
 		return fmt.Sprintf("Error accessing database context: %v", err)
 	}
-	
+
 	db := dbCtx.Value().DB
 	userID := dbCtx.Value().UserID
-	
+
 	// Safety check - only allow SELECT queries
 	if len(q.Query) < 6 || q.Query[:6] != "SELECT" {
 		return "Only SELECT queries are allowed"
 	}
-	
+
 	// Add user context to query (example: user-specific filtering)
 	log.Printf("Executing query for user %s: %s", userID, q.Query)
-	
+
 	rows, err := db.Query(q.Query)
 	if err != nil {
 		return fmt.Sprintf("Query error: %v", err)
 	}
 	defer rows.Close()
-	
+
 	// Get column names
 	columns, err := rows.Columns()
 	if err != nil {
 		return fmt.Sprintf("Error getting columns: %v", err)
 	}
-	
+
 	// Collect results
 	var results []map[string]any
 	values := make([]any, len(columns))
 	valuePtrs := make([]any, len(columns))
-	
+
 	for rows.Next() {
 		for i := range columns {
 			valuePtrs[i] = &values[i]
 		}
-		
+
 		if err := rows.Scan(valuePtrs...); err != nil {
 			return fmt.Sprintf("Scan error: %v", err)
 		}
-		
+
 		entry := make(map[string]any)
 		for i, col := range columns {
 			var v any
@@ -89,7 +89,7 @@ func (q QueryTool) RunWithAnyContext(ctx agents.AnyContext) any {
 		}
 		results = append(results, entry)
 	}
-	
+
 	return fmt.Sprintf("Query returned %d rows: %v", len(results), results)
 }
 
@@ -104,21 +104,21 @@ func (u UserInfoTool) RunWithAnyContext(ctx agents.AnyContext) any {
 	if ctx == nil {
 		return u.Run()
 	}
-	
+
 	dbCtx, err := agents.FromAnyContext[DBContext](ctx)
 	if err != nil {
 		return u.Run()
 	}
-	
+
 	userID := dbCtx.Value().UserID
 	db := dbCtx.Value().DB
-	
+
 	var username, email string
 	err = db.QueryRow("SELECT username, email FROM users WHERE id = ?", userID).Scan(&username, &email)
 	if err != nil {
 		return fmt.Sprintf("Error fetching user info: %v", err)
 	}
-	
+
 	return fmt.Sprintf("Current user: %s (ID: %s, Email: %s)", username, userID, email)
 }
 
@@ -195,7 +195,7 @@ func (r *MockRows) Scan(dest ...any) error {
 	if r.pos >= len(r.data) {
 		return fmt.Errorf("no more rows")
 	}
-	
+
 	cols, _ := r.Columns()
 	for i, d := range dest {
 		if i < len(cols) {
@@ -221,7 +221,7 @@ func setupDatabase() (*MockDB, error) {
 			{"id": 4, "name": "Monitor", "price": 299.99, "stock": 15},
 		},
 	}
-	
+
 	return db, nil
 }
 
@@ -232,13 +232,13 @@ func main() {
 		log.Fatalf("Failed to setup database: %v", err)
 	}
 	// No need to close mock database
-	
+
 	// Create database context for a specific user
 	dbContext := agents.NewContext(DBContext{
 		DB:     db,
 		UserID: "user123", // Simulate logged-in user
 	})
-	
+
 	// Create lifecycle hooks
 	hooks := &agents.LifecycleHooks{
 		BeforeRun: func(ctx agents.AnyContext) error {
@@ -254,7 +254,7 @@ func main() {
 			return nil
 		},
 	}
-	
+
 	// Create tools
 	queryTool := agents.NewContextualTool(
 		"query_database",
@@ -262,14 +262,14 @@ func main() {
 		&QueryTool{},
 		dbContext,
 	)
-	
+
 	userInfoTool := agents.NewContextualTool(
 		"get_user_info",
 		"Get information about the current user",
 		&UserInfoTool{},
 		dbContext,
 	)
-	
+
 	// Create agent
 	config := agents.AgentConfig{
 		Name: "Database Assistant",
@@ -288,27 +288,27 @@ Always be helpful and explain the results clearly.`,
 		},
 		Logger: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})),
 	}
-	
+
 	agent := agents.NewAgentWithContext(config, dbContext)
 	agent = agents.WithTools(agent, queryTool, userInfoTool)
 	agent = agents.WithHooks(agent, hooks)
-	
+
 	// Demo queries
 	fmt.Println("=== Database Context Demo ===")
 	fmt.Println("Connected to mock database")
 	fmt.Println("Current user context: user123 (alice)")
 	fmt.Println()
-	
+
 	// Run the agent
 	queries := []string{
 		"Who am I? Can you tell me about my user account?",
 		"Show me all the products in the database with their prices and stock levels.",
 		"Which products cost less than $100?",
 	}
-	
+
 	for i, query := range queries {
 		fmt.Printf("\n--- Query %d: %s ---\n", i+1, query)
-		
+
 		response, err := agents.Run(context.Background(), agent, agents.Input{
 			OfString: query,
 		})
@@ -316,7 +316,7 @@ Always be helpful and explain the results clearly.`,
 			fmt.Printf("Error: %v\n", err)
 			continue
 		}
-		
+
 		// Stream the response
 		for event := range response.Stream() {
 			if token, ok := event.Token(); ok && token != "" {

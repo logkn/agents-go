@@ -45,7 +45,7 @@ type agentToolArgs struct {
 // Run executes the wrapped agent using the provided prompt and returns the
 // final assistant response content. Errors are returned as strings.
 func (a agentToolArgs) Run() any {
-	resp, err := runner.Run(a.agent, runner.Input{OfString: a.Prompt}, context.Background())
+	resp, err := runner.Run(a.agent, runner.Input{OfString: a.Prompt}, context.Background(), nil)
 	if err != nil {
 		return fmt.Sprintf("error running agent: %v", err)
 	}
@@ -111,10 +111,9 @@ func NewAgent(config AgentConfig) Agent {
 }
 
 // NewAgentWithContext creates a new agent with typed context.
+// Note: Context is no longer stored in the agent. Pass context to Run functions instead.
 func NewAgentWithContext[T any](config AgentConfig, ctx agentcontext.Context[T]) Agent {
-	agent := NewAgent(config)
-	agent.Context = agentcontext.ToAnyContext(ctx)
-	return agent
+	return NewAgent(config)
 }
 
 // WithTools adds tools to an agent.
@@ -143,11 +142,17 @@ func NewTool(name, description string, args ToolArgs) Tool {
 }
 
 // NewContextualTool creates a new tool with context support.
+// Note: Tools no longer store context. Context is passed during execution.
 func NewContextualTool[T any](name, description string, args AnyContextualToolArgs, ctx agentcontext.Context[T]) Tool {
-	return tools.NewContextualTool(name, description, args, ctx)
+	return tools.NewTool(name, description, args)
 }
 
 // Run executes an agent with the given input.
 func Run(ctx context.Context, agent Agent, input Input) (AgentResponse, error) {
-	return runner.Run(agent, input, ctx)
+	return runner.Run(agent, input, ctx, nil)
+}
+
+// RunWithGlobalContext executes an agent with the given input and global context.
+func RunWithGlobalContext(ctx context.Context, agent Agent, input Input, globalContext AnyContext) (AgentResponse, error) {
+	return runner.Run(agent, input, ctx, globalContext)
 }

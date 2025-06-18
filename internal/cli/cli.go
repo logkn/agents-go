@@ -404,7 +404,7 @@ func RunTUI(agent agents.Agent, hideThoughts bool) {
 }
 
 func StreamAgent(agent *agents.Agent, messages []types.Message) *runner.AgentResponse {
-	agentResponse, err := runner.Run(*agent, runner.Input{OfMessages: messages}, context.Background())
+	agentResponse, err := runner.Run(types.Agent(*agent), runner.Input{OfMessages: messages}, context.Background(), nil)
 	if err != nil {
 		log.Fatal(err)
 		panic(err)

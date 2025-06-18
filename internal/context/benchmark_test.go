@@ -24,10 +24,10 @@ func createComplexContext() BenchmarkContext {
 		SessionID:   "session987654321",
 		Permissions: []string{"read", "write", "admin", "delete", "create"},
 		Metadata: map[string]any{
-			"last_login":   "2024-01-01T00:00:00Z",
-			"login_count":  42,
-			"preferences":  map[string]string{"theme": "dark", "lang": "en"},
-			"experiments":  []string{"feature_a", "feature_b", "feature_c"},
+			"last_login":  "2024-01-01T00:00:00Z",
+			"login_count": 42,
+			"preferences": map[string]string{"theme": "dark", "lang": "en"},
+			"experiments": []string{"feature_a", "feature_b", "feature_c"},
 		},
 		Config: struct {
 			Theme    string
@@ -48,7 +48,7 @@ func createComplexContext() BenchmarkContext {
 
 func BenchmarkContextCreation(b *testing.B) {
 	data := createComplexContext()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = NewContext(data)
@@ -58,7 +58,7 @@ func BenchmarkContextCreation(b *testing.B) {
 func BenchmarkToAnyContext(b *testing.B) {
 	data := createComplexContext()
 	ctx := NewContext(data)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = ToAnyContext(ctx)
@@ -69,7 +69,7 @@ func BenchmarkFromAnyContext(b *testing.B) {
 	data := createComplexContext()
 	ctx := NewContext(data)
 	anyCtx := ToAnyContext(ctx)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = FromAnyContext[BenchmarkContext](anyCtx)
@@ -84,7 +84,7 @@ func BenchmarkContextChainFind(b *testing.B) {
 		ToAnyContext(NewContext(createComplexContext())),
 		ToAnyContext(NewContext(SimpleContext{Value: "simple"})),
 	)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = Find[BenchmarkContext](chain)
@@ -95,32 +95,32 @@ func BenchmarkCompositeContextOperations(b *testing.B) {
 	b.Run("Add", func(b *testing.B) {
 		data := createComplexContext()
 		ctx := NewContext(data)
-		
+
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			cc := NewCompositeContext()
 			AddTyped(cc, ctx)
 		}
 	})
-	
+
 	b.Run("Get", func(b *testing.B) {
 		cc := NewCompositeContext()
 		data := createComplexContext()
 		ctx := NewContext(data)
 		AddTyped(cc, ctx)
-		
+
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_, _ = Get[BenchmarkContext](cc)
 		}
 	})
-	
+
 	b.Run("Has", func(b *testing.B) {
 		cc := NewCompositeContext()
 		data := createComplexContext()
 		ctx := NewContext(data)
 		AddTyped(cc, ctx)
-		
+
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			_ = Has[BenchmarkContext](cc)
@@ -132,7 +132,7 @@ func BenchmarkThreadSafeContext(b *testing.B) {
 	data := createComplexContext()
 	ctx := NewContext(data)
 	tsCtx := NewThreadSafeContext(ctx)
-	
+
 	b.Run("Read", func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
@@ -140,7 +140,7 @@ func BenchmarkThreadSafeContext(b *testing.B) {
 			}
 		})
 	})
-	
+
 	b.Run("Write", func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
@@ -149,7 +149,7 @@ func BenchmarkThreadSafeContext(b *testing.B) {
 			}
 		})
 	})
-	
+
 	b.Run("ReadWrite", func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
@@ -168,7 +168,7 @@ func BenchmarkConcurrentAccess(b *testing.B) {
 	data := createComplexContext()
 	ctx := NewContext(data)
 	anyCtx := ToAnyContext(ctx)
-	
+
 	b.Run("FromAnyContext_Parallel", func(b *testing.B) {
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
@@ -176,11 +176,11 @@ func BenchmarkConcurrentAccess(b *testing.B) {
 			}
 		})
 	})
-	
+
 	b.Run("CompositeContext_Parallel", func(b *testing.B) {
 		cc := NewCompositeContext()
 		AddTyped(cc, ctx)
-		
+
 		b.RunParallel(func(pb *testing.PB) {
 			for pb.Next() {
 				_, _ = Get[BenchmarkContext](cc)
@@ -192,38 +192,38 @@ func BenchmarkConcurrentAccess(b *testing.B) {
 func BenchmarkMemoryUsage(b *testing.B) {
 	b.Run("BasicContext", func(b *testing.B) {
 		data := createComplexContext()
-		
+
 		b.ReportAllocs()
 		b.ResetTimer()
-		
+
 		for i := 0; i < b.N; i++ {
 			ctx := NewContext(data)
 			anyCtx := ToAnyContext(ctx)
 			_, _ = FromAnyContext[BenchmarkContext](anyCtx)
 		}
 	})
-	
+
 	b.Run("CompositeContext", func(b *testing.B) {
 		data := createComplexContext()
 		ctx := NewContext(data)
-		
+
 		b.ReportAllocs()
 		b.ResetTimer()
-		
+
 		for i := 0; i < b.N; i++ {
 			cc := NewCompositeContext()
 			AddTyped(cc, ctx)
 			_, _ = Get[BenchmarkContext](cc)
 		}
 	})
-	
+
 	b.Run("ContextChain", func(b *testing.B) {
 		data := createComplexContext()
 		ctx := NewContext(data)
-		
+
 		b.ReportAllocs()
 		b.ResetTimer()
-		
+
 		for i := 0; i < b.N; i++ {
 			chain := NewContextChain(ToAnyContext(ctx))
 			_, _ = Find[BenchmarkContext](chain)
@@ -236,19 +236,19 @@ func BenchmarkToolExecution(b *testing.B) {
 	type MockTool struct {
 		Value string
 	}
-	
+
 	tool := MockTool{Value: "test"}
 	data := createComplexContext()
 	ctx := NewContext(data)
 	anyCtx := ToAnyContext(ctx)
-	
+
 	b.Run("WithoutContext", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			// Simulate tool execution without context
 			_ = tool.Value + " processed"
 		}
 	})
-	
+
 	b.Run("WithContext", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			// Simulate tool execution with context access
@@ -264,22 +264,22 @@ func BenchmarkToolExecution(b *testing.B) {
 func BenchmarkStressTest(b *testing.B) {
 	const numGoroutines = 100
 	const opsPerGoroutine = 1000
-	
+
 	data := createComplexContext()
 	ctx := NewContext(data)
 	tsCtx := NewThreadSafeContext(ctx)
-	
+
 	b.ResetTimer()
-	
+
 	for i := 0; i < b.N; i++ {
 		var wg sync.WaitGroup
-		
+
 		// Spawn many goroutines performing different operations
 		for g := 0; g < numGoroutines; g++ {
 			wg.Add(1)
 			go func(id int) {
 				defer wg.Done()
-				
+
 				for op := 0; op < opsPerGoroutine; op++ {
 					switch op % 4 {
 					case 0:
@@ -302,7 +302,7 @@ func BenchmarkStressTest(b *testing.B) {
 				}
 			}(g)
 		}
-		
+
 		wg.Wait()
 	}
 }
