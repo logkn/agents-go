@@ -3,7 +3,6 @@ package agents
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	agentcontext "github.com/logkn/agents-go/internal/context"
 	"github.com/logkn/agents-go/internal/runner"
@@ -15,6 +14,7 @@ type (
 	Agent                 = types.Agent
 	ModelConfig           = types.ModelConfig
 	LifecycleHooks        = types.LifecycleHooks
+	Handoff               = types.Handoff
 	AnyContext            = agentcontext.AnyContext
 	Tool                  = tools.Tool
 	ToolArgs              = tools.ToolArgs
@@ -86,28 +86,6 @@ func FromAnyContext[T any](anyCtx AnyContext) (agentcontext.Context[T], error) {
 // ToAnyContext converts a typed Context[T] to AnyContext for internal use.
 func ToAnyContext[T any](ctx agentcontext.Context[T]) AnyContext {
 	return agentcontext.ToAnyContext(ctx)
-}
-
-// Agent Builder Functions
-
-// AgentConfig holds the basic configuration for creating an agent.
-type AgentConfig struct {
-	Name         string
-	Instructions string
-	Model        ModelConfig
-	Logger       *slog.Logger
-}
-
-// NewAgent creates a new agent without context.
-func NewAgent(config AgentConfig) Agent {
-	return Agent{
-		Name:         config.Name,
-		Instructions: config.Instructions,
-		Model:        config.Model,
-		Logger:       config.Logger,
-		Tools:        []tools.Tool{},
-		Handoffs:     []types.Handoff{},
-	}
 }
 
 // WithTools adds tools to an agent.

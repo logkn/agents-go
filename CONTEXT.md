@@ -31,14 +31,16 @@ emptyCtx := agents.EmptyContext()
 
 ```go
 // Agent without context
-agent := agents.NewAgent(agents.AgentConfig{
+agent := agents.Agent{
     Name: "MyAgent",
     Instructions: "You are a helpful assistant",
     Model: agents.ModelConfig{Model: "gpt-4o-mini"},
-})
+    Tools: []agents.Tool{},
+    Handoffs: []agents.Handoff{},
+}
 
-// Agent with context
-agentWithCtx := agents.NewAgent(config, userCtx)
+// Agent with context (global context passed at execution time)
+response, err := agents.RunWithGlobalContext(ctx, agent, input, userCtx)
 ```
 
 ### Contextual Tools
@@ -120,7 +122,13 @@ sessionCtx := agents.NewContext(SessionContext{
     Preferences: map[string]string{"theme": "dark"},
 })
 
-agent := agents.NewAgent(config, sessionCtx)
+agent := agents.Agent{
+    Name: "Session Agent",
+    Instructions: "I can access session context",
+    Model: agents.ModelConfig{Model: "gpt-4o-mini"},
+    Tools: []agents.Tool{},
+    Handoffs: []agents.Handoff{},
+}
 ```
 
 ### 2. Database Connection Context
@@ -182,8 +190,7 @@ configCtx := agents.NewContext(ConfigContext{
 
 ### Agent Functions
 
-- `NewAgent(config AgentConfig) Agent` - Create agent without context
-- `NewAgent[T](config AgentConfig, ctx Context[T]) Agent` - Create agent with context
+- Agent struct literal creation
 - `WithTools(agent Agent, tools ...Tool) Agent` - Add tools to agent
 - `WithHooks(agent Agent, hooks *LifecycleHooks) Agent` - Add lifecycle hooks
 

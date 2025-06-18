@@ -271,7 +271,7 @@ func main() {
 	)
 
 	// Create agent
-	config := agents.AgentConfig{
+	agent := agents.Agent{
 		Name: "Database Assistant",
 		Instructions: `You are a helpful database assistant. You can:
 1. Execute SELECT queries to retrieve data from the database
@@ -286,10 +286,10 @@ Always be helpful and explain the results clearly.`,
 		Model: agents.ModelConfig{
 			Model: "gpt-4o-mini",
 		},
-		Logger: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})),
+		Logger:   slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})),
+		Tools:    []agents.Tool{},
+		Handoffs: []agents.Handoff{},
 	}
-
-	agent := agents.NewAgent(config)
 	agent = agents.WithTools(agent, queryTool, userInfoTool)
 	agent = agents.WithHooks(agent, hooks)
 

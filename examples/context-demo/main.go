@@ -128,17 +128,17 @@ func main() {
 	)
 
 	// Create an agent with context and tools
-	config := agents.AgentConfig{
+	agent := agents.Agent{
 		Name:         "Context Demo Agent",
 		Instructions: "You are a helpful assistant that can access user context. Use the available tools to provide personalized responses.",
 		Model: agents.ModelConfig{
 			Model:   "gpt-4o-mini",
 			BaseUrl: "", // Use OpenAI API
 		},
-		Logger: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})),
+		Logger:   slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})),
+		Tools:    []agents.Tool{},
+		Handoffs: []agents.Handoff{},
 	}
-
-	agent := agents.NewAgent(config)
 	agent = agents.WithTools(agent, contextualGreeting, contextualUserInfo)
 	agent = agents.WithHooks(agent, hooks)
 
@@ -171,7 +171,17 @@ func main() {
 	// Demonstrate without context (create a new agent without context)
 	fmt.Println("\n=== Without Context Demo ===")
 
-	agentNoContext := agents.NewAgent(config)
+	agentNoContext := agents.Agent{
+		Name:         "Context Demo Agent",
+		Instructions: "You are a helpful assistant that can access user context. Use the available tools to provide personalized responses.",
+		Model: agents.ModelConfig{
+			Model:   "gpt-4o-mini",
+			BaseUrl: "", // Use OpenAI API
+		},
+		Logger:   slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})),
+		Tools:    []agents.Tool{},
+		Handoffs: []agents.Handoff{},
+	}
 	// Add tools without context
 	regularGreeting := agents.NewTool("greeting", "Provides a basic greeting", &greetingTool{})
 	regularUserInfo := agents.NewTool("user_info", "Attempts to get user info", &userInfoTool{})

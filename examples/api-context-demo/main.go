@@ -239,8 +239,8 @@ func main() {
 		apiContext,
 	)
 
-	// Create agent configuration
-	config := agents.AgentConfig{
+	// Create agent with context and tools
+	agent := agents.Agent{
 		Name: "API Assistant",
 		Instructions: `You are an API-powered assistant that can:
 1. Fetch weather information for any city
@@ -251,11 +251,10 @@ You have access to external APIs through your context. Always be helpful and pro
 		Model: agents.ModelConfig{
 			Model: "gpt-4o-mini",
 		},
-		Logger: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})),
+		Logger:   slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})),
+		Tools:    []agents.Tool{},
+		Handoffs: []agents.Handoff{},
 	}
-
-	// Create agent with context and tools
-	agent := agents.NewAgent(config)
 	agent = agents.WithTools(agent, weatherTool, newsTool, prefsTool)
 	agent = agents.WithHooks(agent, hooks)
 
