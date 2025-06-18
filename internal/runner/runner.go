@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 
 	agentcontext "github.com/logkn/agents-go/internal/context"
@@ -81,12 +82,7 @@ func Run(agent types.Agent, input Input, globalContext agentcontext.AnyContext) 
 		messages = input.OfMessages
 		logger.Debug("using existing conversation", "message_count", len(input.OfMessages))
 	default:
-		instructions, err := agent.Instructions.ToString(globalContext)
-		if err != nil {
-			return AgentResponse{}, fmt.Errorf("failed to get instructions: %w", err)
-		}
 		messages = []types.Message{
-			types.NewSystemMessage(instructions),
 			types.NewUserMessage(input.OfString),
 		}
 		logger.Debug("starting new conversation", "user_prompt", input.OfString)
@@ -120,6 +116,14 @@ func Run(agent types.Agent, input Input, globalContext agentcontext.AnyContext) 
 		for {
 			logger.Debug("sending request to LLM", "message_count", len(messages))
 			openaiMessages := utils.MapSlice(messages, types.Message.ToOpenAI)
+			// insert the instructions at the beginning of the openaiMessages
+			instructions, err := agent.Instructions.ToString(globalContext)
+			if err != nil {
+				panic(err)
+			}
+			systemMessage := types.NewSystemMessage(instructions)
+			openaiMessages = slices.Insert(openaiMessages, 0, systemMessage.ToOpenAI())
+
 			params := openai.ChatCompletionNewParams{
 				Messages:    openaiMessages,
 				Model:       agent.Model.Model,

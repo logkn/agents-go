@@ -71,7 +71,7 @@ var CodingAgent = agents.Agent{
 		if err != nil {
 			return "", err
 		}
-		cwd := context.Value().cwd
+		cwd := context.Value().cwd // Get the current working directory
 
 		return fmt.Sprintf(Instructions, cwd), nil
 	}},
