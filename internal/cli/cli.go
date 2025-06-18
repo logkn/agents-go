@@ -219,7 +219,6 @@ func (s *AppState) ProcessCommand(userMessage string) bool {
 	userMessage = strings.TrimSpace(userMessage)
 	switch userMessage {
 	case "/clear":
-		s.streamHandler.Stop()
 		s.responseBuffer = ""
 		s.items = []MessageAreaItem{}
 		s.messages = []types.Message{}
