@@ -62,9 +62,9 @@ func (q QueryTool) RunWithAnyContext(ctx agents.AnyContext) any {
 	}
 	
 	// Collect results
-	var results []map[string]interface{}
-	values := make([]interface{}, len(columns))
-	valuePtrs := make([]interface{}, len(columns))
+	var results []map[string]any
+	values := make([]any, len(columns))
+	valuePtrs := make([]any, len(columns))
 	
 	for rows.Next() {
 		for i := range columns {
@@ -75,9 +75,9 @@ func (q QueryTool) RunWithAnyContext(ctx agents.AnyContext) any {
 			return fmt.Sprintf("Scan error: %v", err)
 		}
 		
-		entry := make(map[string]interface{})
+		entry := make(map[string]any)
 		for i, col := range columns {
-			var v interface{}
+			var v any
 			val := values[i]
 			b, ok := val.([]byte)
 			if ok {
@@ -125,15 +125,15 @@ func (u UserInfoTool) RunWithAnyContext(ctx agents.AnyContext) any {
 // MockDB represents a mock database for demonstration purposes
 type MockDB struct {
 	users    map[string]map[string]string
-	products []map[string]interface{}
+	products []map[string]any
 }
 
-func (m *MockDB) QueryRow(query string, args ...interface{}) *MockRow {
+func (m *MockDB) QueryRow(query string, args ...any) *MockRow {
 	// Mock user lookup
 	if query == "SELECT username, email FROM users WHERE id = ?" && len(args) > 0 {
 		userID := args[0].(string)
 		if user, exists := m.users[userID]; exists {
-			return &MockRow{data: []interface{}{user["username"], user["email"]}, err: nil}
+			return &MockRow{data: []any{user["username"], user["email"]}, err: nil}
 		}
 	}
 	return &MockRow{err: fmt.Errorf("user not found")}
@@ -145,7 +145,7 @@ func (m *MockDB) Query(query string) (*MockRows, error) {
 		return &MockRows{data: m.products}, nil
 	}
 	if query == "SELECT * FROM products WHERE price < 100" {
-		var filtered []map[string]interface{}
+		var filtered []map[string]any
 		for _, product := range m.products {
 			if price, ok := product["price"].(float64); ok && price < 100 {
 				filtered = append(filtered, product)
@@ -157,11 +157,11 @@ func (m *MockDB) Query(query string) (*MockRows, error) {
 }
 
 type MockRow struct {
-	data []interface{}
+	data []any
 	err  error
 }
 
-func (r *MockRow) Scan(dest ...interface{}) error {
+func (r *MockRow) Scan(dest ...any) error {
 	if r.err != nil {
 		return r.err
 	}
@@ -174,7 +174,7 @@ func (r *MockRow) Scan(dest ...interface{}) error {
 }
 
 type MockRows struct {
-	data []map[string]interface{}
+	data []map[string]any
 	pos  int
 }
 
@@ -191,7 +191,7 @@ func (r *MockRows) Columns() ([]string, error) {
 	return []string{}, nil
 }
 
-func (r *MockRows) Scan(dest ...interface{}) error {
+func (r *MockRows) Scan(dest ...any) error {
 	if r.pos >= len(r.data) {
 		return fmt.Errorf("no more rows")
 	}
@@ -200,7 +200,7 @@ func (r *MockRows) Scan(dest ...interface{}) error {
 	for i, d := range dest {
 		if i < len(cols) {
 			val := r.data[r.pos][cols[i]]
-			*d.(*interface{}) = val
+			*d.(*any) = val
 		}
 	}
 	r.pos++
@@ -214,7 +214,7 @@ func setupDatabase() (*MockDB, error) {
 			"user123": {"username": "alice", "email": "alice@example.com"},
 			"user456": {"username": "bob", "email": "bob@example.com"},
 		},
-		products: []map[string]interface{}{
+		products: []map[string]any{
 			{"id": 1, "name": "Laptop", "price": 999.99, "stock": 10},
 			{"id": 2, "name": "Mouse", "price": 29.99, "stock": 50},
 			{"id": 3, "name": "Keyboard", "price": 79.99, "stock": 30},

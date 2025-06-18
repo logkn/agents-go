@@ -74,7 +74,7 @@ func (t Tool) RunOnArgs(args string) any {
 			"tool_name", t.CompleteName(),
 			"args", args,
 			"error", err)
-		return map[string]interface{}{
+		return map[string]any{
 			"error": fmt.Sprintf("Failed to unmarshal tool arguments: %v", err),
 			"tool":  t.CompleteName(),
 			"args":  args,
@@ -103,7 +103,7 @@ func (t Tool) RunOnArgsWithContext(args string) any {
 			"tool_name", t.CompleteName(),
 			"args", args,
 			"error", err)
-		return map[string]interface{}{
+		return map[string]any{
 			"error": fmt.Sprintf("Failed to unmarshal tool arguments: %v", err),
 			"tool":  t.CompleteName(),
 			"args":  args,
@@ -126,14 +126,14 @@ func (t Tool) RunOnArgsWithContext(args string) any {
 		return result
 	}
 	
-	return map[string]interface{}{
+	return map[string]any{
 		"error": "Tool does not implement ToolArgs interface",
 		"tool":  t.CompleteName(),
 	}
 }
 
 // tryRunWithContext attempts to run the tool with context using reflection to handle the generic type.
-func (t Tool) tryRunWithContext(argsInstance interface{}) (any, bool) {
+func (t Tool) tryRunWithContext(argsInstance any) (any, bool) {
 	// Check if the args instance implements AnyContextualToolArgs
 	if contextualTool, ok := argsInstance.(AnyContextualToolArgs); ok {
 		result := contextualTool.RunWithAnyContext(t.Context)

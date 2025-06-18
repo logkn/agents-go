@@ -16,7 +16,7 @@ func TestCompositeContext(t *testing.T) {
 		configCtx := NewContext(ComplexContext{
 			ID:   1,
 			Name: "config",
-			Settings: map[string]interface{}{
+			Settings: map[string]any{
 				"debug": true,
 			},
 		})

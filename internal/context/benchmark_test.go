@@ -10,7 +10,7 @@ type BenchmarkContext struct {
 	UserID      string
 	SessionID   string
 	Permissions []string
-	Metadata    map[string]interface{}
+	Metadata    map[string]any
 	Config      struct {
 		Theme    string
 		Language string
@@ -23,7 +23,7 @@ func createComplexContext() BenchmarkContext {
 		UserID:      "user123456789",
 		SessionID:   "session987654321",
 		Permissions: []string{"read", "write", "admin", "delete", "create"},
-		Metadata: map[string]interface{}{
+		Metadata: map[string]any{
 			"last_login":   "2024-01-01T00:00:00Z",
 			"login_count":  42,
 			"preferences":  map[string]string{"theme": "dark", "lang": "en"},

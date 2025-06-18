@@ -44,7 +44,7 @@ func (w WeatherTool) RunWithAnyContext(ctx agents.AnyContext) any {
 	url := fmt.Sprintf("%s/weather?city=%s&key=%s", api.BaseURL, w.City, api.APIKey)
 	
 	// For demo purposes, return mock data
-	mockResponse := map[string]interface{}{
+	mockResponse := map[string]any{
 		"city":        w.City,
 		"temperature": "22°C",
 		"condition":   "Sunny",

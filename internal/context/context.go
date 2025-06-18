@@ -45,7 +45,7 @@ type AnyContext interface {
 
 // contextWrapper implements AnyContext for any Context[T].
 type contextWrapper struct {
-	ctx       interface{}
+	ctx       any
 	typeName  string
 	isNilFunc func() bool
 }

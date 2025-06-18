@@ -13,7 +13,7 @@ type SimpleContext struct {
 type ComplexContext struct {
 	ID       int
 	Name     string
-	Settings map[string]interface{}
+	Settings map[string]any
 }
 
 type PointerContext struct {
@@ -23,8 +23,8 @@ type PointerContext struct {
 func TestNewContext(t *testing.T) {
 	tests := []struct {
 		name string
-		data interface{}
-		want interface{}
+		data any
+		want any
 	}{
 		{
 			name: "simple string context",
@@ -41,12 +41,12 @@ func TestNewContext(t *testing.T) {
 			data: ComplexContext{
 				ID:       123,
 				Name:     "test",
-				Settings: map[string]interface{}{"key": "value"},
+				Settings: map[string]any{"key": "value"},
 			},
 			want: ComplexContext{
 				ID:       123,
 				Name:     "test",
-				Settings: map[string]interface{}{"key": "value"},
+				Settings: map[string]any{"key": "value"},
 			},
 		},
 		{
@@ -91,7 +91,7 @@ func TestEmptyContext(t *testing.T) {
 func TestToAnyContext(t *testing.T) {
 	tests := []struct {
 		name         string
-		ctx          interface{}
+		ctx          any
 		wantTypeName string
 		wantIsNil    bool
 	}{
@@ -248,7 +248,7 @@ func TestContextWrapper_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("interface context", func(t *testing.T) {
-		var val interface{} = "test"
+		var val any = "test"
 		ctx := NewContext(val)
 		anyCtx := ToAnyContext(ctx)
 		
@@ -256,7 +256,7 @@ func TestContextWrapper_EdgeCases(t *testing.T) {
 			t.Errorf("TypeName() = %v, want interface {}", anyCtx.TypeName())
 		}
 		
-		recovered, err := FromAnyContext[interface{}](anyCtx)
+		recovered, err := FromAnyContext[any](anyCtx)
 		if err != nil {
 			t.Fatalf("Failed to recover interface: %v", err)
 		}
@@ -285,7 +285,7 @@ func BenchmarkNewContext(b *testing.B) {
 	data := ComplexContext{
 		ID:       123,
 		Name:     "benchmark",
-		Settings: map[string]interface{}{"key": "value"},
+		Settings: map[string]any{"key": "value"},
 	}
 	
 	b.ResetTimer()
