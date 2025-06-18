@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -48,7 +47,7 @@ func main() {
 	// Start with the general agent
 	response, err := runner.Run(generalAgent, runner.Input{
 		OfString: "Can you help me calculate the derivative of x^2 + 3x + 5?",
-	}, context.Background(), nil)
+	}, nil)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return

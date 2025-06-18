@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -276,7 +275,7 @@ You have access to external APIs through your context. Always be helpful and pro
 	for i, request := range requests {
 		fmt.Printf("\n--- Request %d: %s ---\n", i+1, request)
 
-		response, err := agents.Run(context.Background(), agent, agents.Input{
+		response, err := agents.Run(agent, agents.Input{
 			OfString: request,
 		})
 		if err != nil {

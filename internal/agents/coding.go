@@ -1,6 +1,10 @@
 package agents
 
 import (
+	"fmt"
+	"os"
+
+	"github.com/logkn/agents-go/internal/context"
 	"github.com/logkn/agents-go/internal/tools"
 	"github.com/logkn/agents-go/internal/types"
 	agents "github.com/logkn/agents-go/pkg"
@@ -35,17 +39,48 @@ Problem-solving approach:
 - Complete tasks end-to-end rather than stopping at obstacles
 - If something seems wrong, investigate and fix it autonomously
 
-Be independent, thorough, and solution-oriented. Users expect you to figure things out using your tools rather than asking them for details.`
+Be independent, thorough, and solution-oriented. Users expect you to figure things out using your tools rather than asking them for details.
+
+---
+
+The working directory is currently: %s
+`
+
+type CodingContext struct {
+	cwd string
+}
+
+func NewCodingContext() agents.AnyContext {
+	cwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+
+	codingContext := context.NewContext(CodingContext{
+		cwd: cwd,
+	})
+
+	return agents.ToAnyContext(codingContext)
+}
 
 var CodingAgent = agents.Agent{
-	Name:         "Coding Agent",
-	Instructions: types.AgentInstructions{OfString: Instructions},
+	Name: "Coding Agent",
+	Instructions: types.AgentInstructions{OfFunc: func(ctx context.AnyContext) (string, error) {
+		// format instructions with current working directory
+		context, err := agents.FromAnyContext[CodingContext](ctx)
+		if err != nil {
+			return "", err
+		}
+		cwd := context.Value().cwd
+
+		return fmt.Sprintf(Instructions, cwd), nil
+	}},
 	Tools: []tools.Tool{
 		tools.FileReadTool,
 		tools.FileWriteTool,
 		tools.ListTool,
 		tools.SearchTool,
-		tools.PwdTool,
+		// tools.PwdTool,
 		tools.PatchTool,
 		tools.GlobTool,
 	},

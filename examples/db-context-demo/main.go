@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"log/slog"
@@ -310,7 +309,7 @@ Always be helpful and explain the results clearly.`},
 	for i, query := range queries {
 		fmt.Printf("\n--- Query %d: %s ---\n", i+1, query)
 
-		response, err := agents.Run(context.Background(), agent, agents.Input{
+		response, err := agents.Run(agent, agents.Input{
 			OfString: query,
 		})
 		if err != nil {

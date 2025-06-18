@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"strings"
@@ -134,6 +133,7 @@ type AppState struct {
 	streamHandler  StreamHandler
 	hideThoughts   bool
 	spinner        spinner.Model
+	context        agents.AnyContext
 }
 
 func (s *AppState) pushMessage(msg types.Message) {
@@ -184,7 +184,7 @@ func initialComponents() AppStateComponents {
 	}
 }
 
-func initialModel(agent *agents.Agent, hideThoughts bool) AppState {
+func initialModel(agent *agents.Agent, hideThoughts bool, context agents.AnyContext) AppState {
 	agent.Logger = utils.NilLogger()
 
 	// Initialize spinner with custom frames for blinking bullet
@@ -200,6 +200,7 @@ func initialModel(agent *agents.Agent, hideThoughts bool) AppState {
 		agent:        agent,
 		hideThoughts: hideThoughts,
 		spinner:      s,
+		context:      context,
 	}
 }
 
@@ -327,7 +328,7 @@ func (s AppState) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			s.components.inputBox.Reset()
 
 			// Initialize stream control
-			agentResponse := StreamAgent(s.agent, s.messages)
+			agentResponse := StreamAgent(s.agent, s.messages, s.context)
 			s.streamHandler.response = agentResponse
 
 			go func() {
@@ -396,15 +397,15 @@ func (s AppState) View() string {
 
 var p *tea.Program
 
-func RunTUI(agent agents.Agent, hideThoughts bool) {
-	p = tea.NewProgram(initialModel(&agent, hideThoughts), tea.WithMouseCellMotion())
+func RunTUI(agent agents.Agent, hideThoughts bool, context agents.AnyContext) {
+	p = tea.NewProgram(initialModel(&agent, hideThoughts, context), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func StreamAgent(agent *agents.Agent, messages []types.Message) *runner.AgentResponse {
-	agentResponse, err := runner.Run(types.Agent(*agent), runner.Input{OfMessages: messages}, context.Background(), nil)
+func StreamAgent(agent *agents.Agent, messages []types.Message, context agents.AnyContext) *runner.AgentResponse {
+	agentResponse, err := runner.Run(types.Agent(*agent), runner.Input{OfMessages: messages}, context)
 	if err != nil {
 		log.Fatal(err)
 		panic(err)

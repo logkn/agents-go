@@ -55,7 +55,7 @@ func isHandoffTool(agent types.Agent, toolName string) bool {
 // history. Otherwise a new conversation is started with input.OfString as the
 // user prompt.
 // The globalContext parameter provides shared state accessible to all tools during execution.
-func Run(agent types.Agent, input Input, ctx context.Context, globalContext agentcontext.AnyContext) (AgentResponse, error) {
+func Run(agent types.Agent, input Input, globalContext agentcontext.AnyContext) (AgentResponse, error) {
 	logger := agent.Logger
 	if logger == nil {
 		logger = slog.Default()

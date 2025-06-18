@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -67,7 +66,7 @@ func main() {
 	// Run agent with global context
 	response, err := runner.Run(agent, runner.Input{
 		OfString: "What's my current session information?",
-	}, context.Background(), agents.ToAnyContext(sessionCtx))
+	}, agents.ToAnyContext(sessionCtx))
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return

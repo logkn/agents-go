@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -147,7 +146,7 @@ func main() {
 	fmt.Println("=== Context-Aware Agent Demo ===")
 
 	// Run the agent with a request that will use context
-	response, err := agents.Run(context.Background(), agent, agents.Input{
+	response, err := agents.Run(agent, agents.Input{
 		OfString: "Hi! Can you greet me personally and tell me about my user information?",
 	})
 	if err != nil {
@@ -188,7 +187,7 @@ func main() {
 	regularUserInfo := agents.NewTool("user_info", "Attempts to get user info", &userInfoTool{})
 	agentNoContext = agents.WithTools(agentNoContext, regularGreeting, regularUserInfo)
 
-	responseNoContext, err := agents.Run(context.Background(), agentNoContext, agents.Input{
+	responseNoContext, err := agents.Run(agentNoContext, agents.Input{
 		OfString: "Hi! Can you greet me and tell me about my user information?",
 	})
 	if err != nil {

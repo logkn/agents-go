@@ -1,7 +1,6 @@
 package agents
 
 import (
-	"context"
 	"fmt"
 
 	agentcontext "github.com/logkn/agents-go/internal/context"
@@ -45,7 +44,7 @@ type agentToolArgs struct {
 // Run executes the wrapped agent using the provided prompt and returns the
 // final assistant response content. Errors are returned as strings.
 func (a agentToolArgs) Run() any {
-	resp, err := runner.Run(a.agent, runner.Input{OfString: a.Prompt}, context.Background(), nil)
+	resp, err := runner.Run(a.agent, runner.Input{OfString: a.Prompt}, nil)
 	if err != nil {
 		return fmt.Sprintf("error running agent: %v", err)
 	}
@@ -120,11 +119,11 @@ func NewContextualTool[T any](name, description string, args AnyContextualToolAr
 }
 
 // Run executes an agent with the given input.
-func Run(ctx context.Context, agent Agent, input Input) (AgentResponse, error) {
-	return runner.Run(agent, input, ctx, nil)
+func Run(agent Agent, input Input) (AgentResponse, error) {
+	return runner.Run(agent, input, nil)
 }
 
 // RunWithGlobalContext executes an agent with the given input and global context.
-func RunWithGlobalContext(ctx context.Context, agent Agent, input Input, globalContext AnyContext) (AgentResponse, error) {
-	return runner.Run(agent, input, ctx, globalContext)
+func RunWithGlobalContext(agent Agent, input Input, globalContext AnyContext) (AgentResponse, error) {
+	return runner.Run(agent, input, globalContext)
 }

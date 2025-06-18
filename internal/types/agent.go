@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/logkn/agents-go/internal/context"
+	agentcontext "github.com/logkn/agents-go/internal/context"
 	"github.com/logkn/agents-go/internal/tools"
 	"github.com/stoewer/go-strcase"
 )
@@ -49,10 +49,10 @@ func (h handoffToolArgs) Run() any {
 
 type AgentInstructions struct {
 	OfString string
-	OfFunc   func(ctx context.AnyContext) (string, error)
+	OfFunc   func(ctx agentcontext.AnyContext) (string, error)
 }
 
-func (ins AgentInstructions) ToString(ctx context.AnyContext) (string, error) {
+func (ins AgentInstructions) ToString(ctx agentcontext.AnyContext) (string, error) {
 	if ins.OfString != "" {
 		return ins.OfString, nil
 	}
@@ -78,10 +78,10 @@ type Agent struct {
 
 // LifecycleHooks defines optional hooks that can be called during agent execution.
 type LifecycleHooks struct {
-	BeforeRun      func(ctx context.AnyContext) error
-	AfterRun       func(ctx context.AnyContext, result any) error
-	BeforeToolCall func(ctx context.AnyContext, toolName string, args string) error
-	AfterToolCall  func(ctx context.AnyContext, toolName string, result any) error
+	BeforeRun      func(ctx agentcontext.AnyContext) error
+	AfterRun       func(ctx agentcontext.AnyContext, result any) error
+	BeforeToolCall func(ctx agentcontext.AnyContext, toolName string, args string) error
+	AfterToolCall  func(ctx agentcontext.AnyContext, toolName string, result any) error
 }
 
 func (a *Agent) HandoffTools() []tools.Tool {
