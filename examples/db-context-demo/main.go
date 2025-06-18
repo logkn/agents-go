@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/logkn/agents-go/internal/types"
 	agents "github.com/logkn/agents-go/pkg"
 	// To use a real database like SQLite, add:
 	// "database/sql"
@@ -273,7 +274,7 @@ func main() {
 	// Create agent
 	agent := agents.Agent{
 		Name: "Database Assistant",
-		Instructions: `You are a helpful database assistant. You can:
+		Instructions: types.AgentInstructions{OfString: `You are a helpful database assistant. You can:
 1. Execute SELECT queries to retrieve data from the database
 2. Get information about the current user
 3. Help users understand the data
@@ -282,7 +283,7 @@ Available tables:
 - users (id, username, email)
 - products (id, name, price, stock)
 
-Always be helpful and explain the results clearly.`,
+Always be helpful and explain the results clearly.`},
 		Model: agents.ModelConfig{
 			Model: "gpt-4o-mini",
 		},

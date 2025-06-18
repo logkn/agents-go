@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/logkn/agents-go/internal/types"
 	agents "github.com/logkn/agents-go/pkg"
 )
 
@@ -242,12 +243,12 @@ func main() {
 	// Create agent with context and tools
 	agent := agents.Agent{
 		Name: "API Assistant",
-		Instructions: `You are an API-powered assistant that can:
+		Instructions: types.AgentInstructions{OfString: `You are an API-powered assistant that can:
 1. Fetch weather information for any city
 2. Get news articles on specific topics
 3. Manage user preferences
 
-You have access to external APIs through your context. Always be helpful and provide clear, formatted responses to users. When fetching data, explain what you're doing and provide useful summaries.`,
+You have access to external APIs through your context. Always be helpful and provide clear, formatted responses to users. When fetching data, explain what you're doing and provide useful summaries.`},
 		Model: agents.ModelConfig{
 			Model: "gpt-4o-mini",
 		},

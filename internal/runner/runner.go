@@ -81,8 +81,12 @@ func Run(agent types.Agent, input Input, ctx context.Context, globalContext agen
 		messages = input.OfMessages
 		logger.Debug("using existing conversation", "message_count", len(input.OfMessages))
 	default:
+		instructions, err := agent.Instructions.ToString(globalContext)
+		if err != nil {
+			return AgentResponse{}, fmt.Errorf("failed to get instructions: %w", err)
+		}
 		messages = []types.Message{
-			types.NewSystemMessage(agent.Instructions),
+			types.NewSystemMessage(instructions),
 			types.NewUserMessage(input.OfString),
 		}
 		logger.Debug("starting new conversation", "user_prompt", input.OfString)

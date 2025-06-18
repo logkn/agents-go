@@ -56,7 +56,7 @@ func main() {
 	// Create agent
 	agent := types.Agent{
 		Name:         "Session Agent",
-		Instructions: "You are an assistant that can access session information. Use the session_info tool when asked about the current session.",
+		Instructions: types.AgentInstructions{OfString: "You are an assistant that can access session information. Use the session_info tool when asked about the current session."},
 		Model: types.ModelConfig{
 			Model: "gpt-4o-mini",
 		},

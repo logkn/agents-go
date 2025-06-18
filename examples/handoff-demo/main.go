@@ -14,7 +14,7 @@ func main() {
 	// Create specialized agents
 	mathAgent := types.Agent{
 		Name:         "Math Specialist",
-		Instructions: "You are a math specialist. Help users with mathematical calculations and problems. If asked about non-math topics, transfer to the general assistant.",
+		Instructions: types.AgentInstructions{OfString: "You are a math specialist. Help users with mathematical calculations and problems. If asked about non-math topics, transfer to the general assistant."},
 		Model: types.ModelConfig{
 			Model: "qwen3:30b-a3b",
 		},
@@ -23,7 +23,7 @@ func main() {
 
 	generalAgent := types.Agent{
 		Name:         "General Assistant",
-		Instructions: "You are a general purpose assistant. Help users with various tasks. If asked complex math questions, transfer to the math specialist.",
+		Instructions: types.AgentInstructions{OfString: "You are a general purpose assistant. Help users with various tasks. If asked complex math questions, transfer to the math specialist."},
 		Model: types.ModelConfig{
 			Model: "qwen3:30b-a3b",
 		},

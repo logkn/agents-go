@@ -1,6 +1,7 @@
 package types
 
 import (
+	"errors"
 	"log/slog"
 	"strings"
 
@@ -46,12 +47,27 @@ func (h handoffToolArgs) Run() any {
 	return "handoff_executed"
 }
 
+type AgentInstructions struct {
+	OfString string
+	OfFunc   func(ctx context.AnyContext) (string, error)
+}
+
+func (ins AgentInstructions) ToString(ctx context.AnyContext) (string, error) {
+	if ins.OfString != "" {
+		return ins.OfString, nil
+	}
+	if ins.OfFunc != nil {
+		return ins.OfFunc(ctx)
+	}
+	return "", errors.New("no instruction provided")
+}
+
 // Agent represents an autonomous entity that can process instructions and use
 // tools. Tools are optional helpers, while Handoffs specifies other agents that
 // can be delegated work.
 type Agent struct {
 	Name         string
-	Instructions string
+	Instructions AgentInstructions
 	Tools        []tools.Tool
 	Model        ModelConfig
 	Handoffs     []Handoff

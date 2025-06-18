@@ -33,7 +33,7 @@ emptyCtx := agents.EmptyContext()
 // Agent without context
 agent := agents.Agent{
     Name: "MyAgent",
-    Instructions: "You are a helpful assistant",
+    Instructions: types.AgentInstructions{OfString: "You are a helpful assistant."},
     Model: agents.ModelConfig{Model: "gpt-4o-mini"},
     Tools: []agents.Tool{},
     Handoffs: []agents.Handoff{},
@@ -124,7 +124,7 @@ sessionCtx := agents.NewContext(SessionContext{
 
 agent := agents.Agent{
     Name: "Session Agent",
-    Instructions: "I can access session context",
+    Instructions: types.AgentInstructions{OfString: "You can access session context"},
     Model: agents.ModelConfig{Model: "gpt-4o-mini"},
     Tools: []agents.Tool{},
     Handoffs: []agents.Handoff{},

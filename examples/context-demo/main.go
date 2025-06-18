@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/logkn/agents-go/internal/types"
 	agents "github.com/logkn/agents-go/pkg"
 )
 
@@ -130,7 +131,7 @@ func main() {
 	// Create an agent with context and tools
 	agent := agents.Agent{
 		Name:         "Context Demo Agent",
-		Instructions: "You are a helpful assistant that can access user context. Use the available tools to provide personalized responses.",
+		Instructions: types.AgentInstructions{OfString: "You are a helpful assistant that can access user context. Use the available tools to provide personalized responses."},
 		Model: agents.ModelConfig{
 			Model:   "gpt-4o-mini",
 			BaseUrl: "", // Use OpenAI API
@@ -173,7 +174,7 @@ func main() {
 
 	agentNoContext := agents.Agent{
 		Name:         "Context Demo Agent",
-		Instructions: "You are a helpful assistant that can access user context. Use the available tools to provide personalized responses.",
+		Instructions: types.AgentInstructions{OfString: "You are a helpful assistant that can access user context. Use the available tools to provide personalized responses."},
 		Model: agents.ModelConfig{
 			Model:   "gpt-4o-mini",
 			BaseUrl: "", // Use OpenAI API

@@ -39,7 +39,7 @@ Be independent, thorough, and solution-oriented. Users expect you to figure thin
 
 var CodingAgent = agents.Agent{
 	Name:         "Coding Agent",
-	Instructions: Instructions,
+	Instructions: types.AgentInstructions{OfString: Instructions},
 	Tools: []tools.Tool{
 		tools.FileReadTool,
 		tools.FileWriteTool,
