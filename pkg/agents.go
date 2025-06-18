@@ -110,12 +110,6 @@ func NewAgent(config AgentConfig) Agent {
 	}
 }
 
-// NewAgentWithContext creates a new agent with typed context.
-// Note: Context is no longer stored in the agent. Pass context to Run functions instead.
-func NewAgentWithContext[T any](config AgentConfig, ctx agentcontext.Context[T]) Agent {
-	return NewAgent(config)
-}
-
 // WithTools adds tools to an agent.
 func WithTools(agent Agent, tools ...Tool) Agent {
 	agent.Tools = append(agent.Tools, tools...)

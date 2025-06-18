@@ -289,7 +289,7 @@ Always be helpful and explain the results clearly.`,
 		Logger: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})),
 	}
 
-	agent := agents.NewAgentWithContext(config, dbContext)
+	agent := agents.NewAgent(config)
 	agent = agents.WithTools(agent, queryTool, userInfoTool)
 	agent = agents.WithHooks(agent, hooks)
 

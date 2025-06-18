@@ -255,7 +255,7 @@ You have access to external APIs through your context. Always be helpful and pro
 	}
 
 	// Create agent with context and tools
-	agent := agents.NewAgentWithContext(config, apiContext)
+	agent := agents.NewAgent(config)
 	agent = agents.WithTools(agent, weatherTool, newsTool, prefsTool)
 	agent = agents.WithHooks(agent, hooks)
 

@@ -38,7 +38,7 @@ agent := agents.NewAgent(agents.AgentConfig{
 })
 
 // Agent with context
-agentWithCtx := agents.NewAgentWithContext(config, userCtx)
+agentWithCtx := agents.NewAgent(config, userCtx)
 ```
 
 ### Contextual Tools
@@ -120,7 +120,7 @@ sessionCtx := agents.NewContext(SessionContext{
     Preferences: map[string]string{"theme": "dark"},
 })
 
-agent := agents.NewAgentWithContext(config, sessionCtx)
+agent := agents.NewAgent(config, sessionCtx)
 ```
 
 ### 2. Database Connection Context
@@ -183,7 +183,7 @@ configCtx := agents.NewContext(ConfigContext{
 ### Agent Functions
 
 - `NewAgent(config AgentConfig) Agent` - Create agent without context
-- `NewAgentWithContext[T](config AgentConfig, ctx Context[T]) Agent` - Create agent with context
+- `NewAgent[T](config AgentConfig, ctx Context[T]) Agent` - Create agent with context
 - `WithTools(agent Agent, tools ...Tool) Agent` - Add tools to agent
 - `WithHooks(agent Agent, hooks *LifecycleHooks) Agent` - Add lifecycle hooks
 

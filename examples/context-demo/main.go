@@ -138,7 +138,7 @@ func main() {
 		Logger: slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})),
 	}
 
-	agent := agents.NewAgentWithContext(config, userContext)
+	agent := agents.NewAgent(config)
 	agent = agents.WithTools(agent, contextualGreeting, contextualUserInfo)
 	agent = agents.WithHooks(agent, hooks)
 
