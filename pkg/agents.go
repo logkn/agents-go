@@ -15,7 +15,7 @@ type (
 	Agent                 = types.Agent
 	ModelConfig           = types.ModelConfig
 	LifecycleHooks        = types.LifecycleHooks
-	AnyContext            = agentcontext.AnyContext  
+	AnyContext            = agentcontext.AnyContext
 	Tool                  = tools.Tool
 	ToolArgs              = tools.ToolArgs
 	AnyContextualToolArgs = tools.AnyContextualToolArgs
@@ -45,7 +45,7 @@ type agentToolArgs struct {
 // Run executes the wrapped agent using the provided prompt and returns the
 // final assistant response content. Errors are returned as strings.
 func (a agentToolArgs) Run() any {
-	resp, err := runner.Run(context.Background(), a.agent, runner.Input{OfString: a.Prompt})
+	resp, err := runner.Run(a.agent, runner.Input{OfString: a.Prompt}, context.Background())
 	if err != nil {
 		return fmt.Sprintf("error running agent: %v", err)
 	}
@@ -149,5 +149,5 @@ func NewContextualTool[T any](name, description string, args AnyContextualToolAr
 
 // Run executes an agent with the given input.
 func Run(ctx context.Context, agent Agent, input Input) (AgentResponse, error) {
-	return runner.Run(ctx, agent, input)
+	return runner.Run(agent, input, ctx)
 }

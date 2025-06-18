@@ -28,12 +28,12 @@ func (s sessionInfoTool) RunWithAnyContext(ctx agents.AnyContext) any {
 	if ctx == nil {
 		return s.Run()
 	}
-	
+
 	sessionCtx, err := agents.FromAnyContext[SessionContext](ctx)
 	if err != nil {
 		return fmt.Sprintf("Context error: %v", err)
 	}
-	
+
 	session := sessionCtx.Value()
 	return fmt.Sprintf("Session ID: %s, User: %s", session.SessionID, session.UserName)
 }
@@ -66,9 +66,9 @@ func main() {
 	}
 
 	// Run agent
-	response, err := runner.Run(context.Background(), agent, runner.Input{
+	response, err := runner.Run(agent, runner.Input{
 		OfString: "What's my current session information?",
-	})
+	}, context.Background())
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return
@@ -83,3 +83,4 @@ func main() {
 
 	fmt.Printf("\n\nFinal response: %s\n", response.Response().Content)
 }
+

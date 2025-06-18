@@ -53,7 +53,7 @@ func isHandoffTool(agent types.Agent, toolName string) bool {
 // If input.OfMessages is provided it is treated as the existing conversation
 // history. Otherwise a new conversation is started with input.OfString as the
 // user prompt.
-func Run(ctx context.Context, agent types.Agent, input Input) (AgentResponse, error) {
+func Run(agent types.Agent, input Input, ctx context.Context) (AgentResponse, error) {
 	logger := agent.Logger
 	if logger == nil {
 		logger = slog.Default()
@@ -226,7 +226,7 @@ func Run(ctx context.Context, agent types.Agent, input Input) (AgentResponse, er
 				for _, tool := range allTools {
 					if tool.CompleteName() == funcname {
 						toolFound = true
-						
+
 						// Execute BeforeToolCall hook
 						if agent.Hooks != nil && agent.Hooks.BeforeToolCall != nil {
 							if err := agent.Hooks.BeforeToolCall(agent.Context, funcname, toolcall.Args); err != nil {
@@ -234,7 +234,7 @@ func Run(ctx context.Context, agent types.Agent, input Input) (AgentResponse, er
 								continue
 							}
 						}
-						
+
 						var result any
 						// Use contextual execution if tool has context, otherwise use regular execution
 						if tool.Context != nil {
@@ -242,14 +242,14 @@ func Run(ctx context.Context, agent types.Agent, input Input) (AgentResponse, er
 						} else {
 							result = tool.RunOnArgs(toolcall.Args)
 						}
-						
+
 						// Execute AfterToolCall hook
 						if agent.Hooks != nil && agent.Hooks.AfterToolCall != nil {
 							if err := agent.Hooks.AfterToolCall(agent.Context, funcname, result); err != nil {
 								logger.Error("AfterToolCall hook failed", "error", err, "tool_name", funcname)
 							}
 						}
-						
+
 						logger.Info("tool execution completed",
 							"tool_name", funcname,
 							"tool_call_id", toolcall.ID)
@@ -270,7 +270,7 @@ func Run(ctx context.Context, agent types.Agent, input Input) (AgentResponse, er
 				}
 			}
 		}
-		
+
 		// Execute AfterRun hook before stopping
 		if agent.Hooks != nil && agent.Hooks.AfterRun != nil {
 			// Get the final response content for the hook
@@ -287,7 +287,7 @@ func Run(ctx context.Context, agent types.Agent, input Input) (AgentResponse, er
 				logger.Error("AfterRun hook failed", "error", err)
 			}
 		}
-		
+
 		agentResponse.Stop()
 	}()
 
