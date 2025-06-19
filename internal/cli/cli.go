@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -32,8 +34,6 @@ type StreamHandler struct {
 func (sh *StreamHandler) Stop() {
 	if sh.response != nil {
 		sh.response.Stop()
-	} else {
-		fmt.Println("no response to stop")
 	}
 }
 
@@ -45,14 +45,15 @@ type UIMessage struct {
 	types.Message
 }
 
-func (m UIMessage) RenderMessage(hideThoughts bool) string {
+func (m UIMessage) RenderMessage(hideThoughts bool, isStreaming bool, spinnerView string) string {
 	msg := m.Message
-	content := RenderMarkdown(msg.Content, hideThoughts)
 	switch msg.Role {
 	case types.User:
+		content := RenderMarkdown(msg.Content, hideThoughts, false, isStreaming, spinnerView)
 		return lipgloss.NewStyle().Foreground(lipgloss.Color(gray)).Render("> " + content)
 	case types.Assistant:
-		return "● " + content
+		content := RenderMarkdown(msg.Content, hideThoughts, true, isStreaming, spinnerView)
+		return content
 	default:
 		return ""
 	}
@@ -112,10 +113,10 @@ type MessageAreaItem struct {
 	OfTool    *CallAndResponse
 }
 
-func (item MessageAreaItem) View(hideThoughts bool) string {
+func (item MessageAreaItem) View(hideThoughts bool, spinnerView string) string {
 	switch {
 	case item.OfMessage != nil:
-		return item.OfMessage.RenderMessage(hideThoughts)
+		return item.OfMessage.RenderMessage(hideThoughts, false, spinnerView) // completed messages are not streaming
 	case item.OfTool != nil:
 		return item.OfTool.View()
 	}
@@ -131,6 +132,7 @@ type AppState struct {
 	agent          *agents.Agent
 	streamHandler  StreamHandler
 	hideThoughts   bool
+	spinner        spinner.Model
 }
 
 func (s *AppState) pushMessage(msg types.Message) {
@@ -183,11 +185,20 @@ func initialComponents() AppStateComponents {
 
 func initialModel(agent *agents.Agent, hideThoughts bool) AppState {
 	agent.Logger = utils.NilLogger()
+
+	// Initialize spinner with custom frames for blinking bullet
+	s := spinner.New()
+	s.Spinner = spinner.Spinner{
+		Frames: []string{"● ", "\u00A0\u00A0"}, // Use non-breaking spaces for empty frame
+		FPS:    time.Second / 3,                //nolint:mnd
+	}
+
 	return AppState{
 		components:   initialComponents(),
 		messages:     []types.Message{},
 		agent:        agent,
 		hideThoughts: hideThoughts,
+		spinner:      s,
 	}
 }
 
@@ -199,7 +210,7 @@ type (
 // Tea.Model implementation
 
 func (s AppState) Init() tea.Cmd {
-	return tea.Batch(textarea.Blink)
+	return tea.Batch(textarea.Blink, s.spinner.Tick)
 }
 
 func (s *AppState) ProcessCommand(userMessage string) bool {
@@ -257,16 +268,17 @@ func (s *AppState) registerToolResponse(id string, response string) {
 
 func (s *AppState) refreshViewport() {
 	vp := &s.components.viewport
+	spinnerView := s.spinner.View()
 
 	lines := utils.MapSlice(s.items, func(item MessageAreaItem) string {
-		return item.View(s.hideThoughts)
+		return item.View(s.hideThoughts, spinnerView)
 	})
 
 	// Add current response buffer as temporary content without modifying s.items
 	if len(s.responseBuffer) > 0 {
 		respMessage := types.NewAssistantMessage(s.responseBuffer, s.agent.Name, []types.ToolCall{})
 		uiMessage := UIMessage{respMessage}
-		lines = append(lines, uiMessage.RenderMessage(s.hideThoughts))
+		lines = append(lines, uiMessage.RenderMessage(s.hideThoughts, true, spinnerView)) // response buffer is streaming
 	}
 
 	content := strings.Join(lines, gap)
@@ -282,11 +294,13 @@ func (s *AppState) GoToBottom() {
 
 func (s AppState) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
-		tiCmd tea.Cmd
-		vpCmd tea.Cmd
+		tiCmd      tea.Cmd
+		vpCmd      tea.Cmd
+		spinnerCmd tea.Cmd
 	)
 	s.components.inputBox, tiCmd = s.components.inputBox.Update(msg)
 	s.components.viewport, vpCmd = s.components.viewport.Update(msg)
+	s.spinner, spinnerCmd = s.spinner.Update(msg)
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -350,7 +364,7 @@ func (s AppState) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	}
 
-	return s, tea.Batch(tiCmd, vpCmd)
+	return s, tea.Batch(tiCmd, vpCmd, spinnerCmd)
 }
 
 func (s *AppState) renderViewport() string {
