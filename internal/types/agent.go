@@ -2,48 +2,10 @@ package types
 
 import (
 	"log/slog"
-	"strings"
 
 	"github.com/logkn/agents-go/internal/tools"
-	"github.com/stoewer/go-strcase"
+	"github.com/logkn/agents-go/internal/utils"
 )
-
-type Handoff[Context any] struct {
-	Agent           *Agent[Context]
-	ToolName        string
-	ToolDescription string
-}
-
-func (h Handoff[Context]) defaultName() string {
-	// "transfer_to_{agent_name}"
-	snakecaseName := strings.ReplaceAll(h.Agent.Name, " ", "_")
-	snakecaseName = strcase.SnakeCase(snakecaseName)
-	return "transfer_to_" + snakecaseName
-}
-
-func (h Handoff[Context]) fullname() string {
-	if h.ToolName != "" {
-		return h.ToolName
-	}
-	return h.defaultName()
-}
-
-func (h Handoff[Context]) defaultDescription() string {
-	return "Handoff to the " + h.Agent.Name + " agent to handle the request."
-}
-
-func (h Handoff[Context]) description() string {
-	if h.ToolDescription != "" {
-		return h.ToolDescription
-	}
-	return h.defaultDescription()
-}
-
-type handoffToolArgs[Context any] struct{}
-
-func (h handoffToolArgs[Context]) Run(ctx *Context) any {
-	return "handoff_executed"
-}
 
 // Agent represents an autonomous entity that can process instructions and use
 // tools. Tools are optional helpers, while Handoffs specifies other agents that
@@ -65,15 +27,8 @@ type Agent[Context any] struct {
 	Hooks *LifecycleHooks[Context]
 }
 
-// LifecycleHooks defines optional hooks that can be called during agent execution.
-type LifecycleHooks[Context any] struct {
-	BeforeRun      func(ctx *Context) error
-	AfterRun       func(ctx *Context, result any) error
-	BeforeToolCall func(ctx *Context, toolName string, args string) error
-	AfterToolCall  func(ctx *Context, toolName string, result any) error
-}
-
-func (a *Agent[Context]) HandoffTools() []tools.Tool[Context] {
+// AllTools returns all tools (regular + handoff).
+func (a *Agent[Context]) AllTools() []tools.Tool[Context] {
 	handoffTools := make([]tools.Tool[Context], len(a.Handoffs))
 	for i, handoff := range a.Handoffs {
 		handoffTools[i] = tools.Tool[Context]{
@@ -82,11 +37,34 @@ func (a *Agent[Context]) HandoffTools() []tools.Tool[Context] {
 			Args:        handoffToolArgs[Context]{},
 		}
 	}
-	return handoffTools
+	return append(a.Tools, handoffTools...)
 }
 
-// AllTools returns all tools (regular + handoff).
-func (a *Agent[Context]) AllTools() []tools.Tool[Context] {
-	handoffTools := a.HandoffTools()
-	return append(a.Tools, handoffTools...)
+func NewAgent[Context any](name string, model ModelConfig) Agent[Context] {
+	return Agent[Context]{
+		Name:         name,
+		Model:        model,
+		Tools:        []tools.Tool[Context]{},
+		Logger:       utils.NilLogger(),
+		Hooks:        nil,
+		Instructions: StringInstructions[Context]("You are a helpful assistant."),
+		Handoffs:     []Handoff[Context]{},
+	}
+}
+
+// WithTools returns a new agent with the given tools.
+func (a *Agent[Context]) WithTools(tools []tools.Tool[Context]) *Agent[Context] {
+	a.Tools = append(a.Tools, tools...)
+	return a
+}
+
+// WithHandoffs returns a new agent with the given handoffs.
+func (a *Agent[Context]) WithHandoffs(handoffs []Handoff[Context]) *Agent[Context] {
+	a.Handoffs = append(a.Handoffs, handoffs...)
+	return a
+}
+
+func (a *Agent[Context]) WithInstructions(instructions AgentInstructions[Context]) *Agent[Context] {
+	a.Instructions = instructions
+	return a
 }

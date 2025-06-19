@@ -7,6 +7,7 @@ import (
 	"github.com/logkn/agents-go/internal/runner"
 	"github.com/logkn/agents-go/internal/tools"
 	"github.com/logkn/agents-go/internal/types"
+	"github.com/logkn/agents-go/internal/utils"
 )
 
 type (
@@ -57,5 +58,16 @@ func AsTool[Context any](a Agent[Context], toolname, description string) tools.T
 		Name:        toolname,
 		Description: description,
 		Args:        agentToolArgs[Context]{agent: a},
+	}
+}
+
+func NewAgent[Context any](model ModelConfig) Agent[Context] {
+	return Agent[Context]{
+		Model:        model,
+		Tools:        []tools.Tool[Context]{},
+		Logger:       utils.NilLogger(),
+		Hooks:        nil,
+		Name:         "Agent",
+		Instructions: types.StringInstructions[Context]("You are a helpful assistant."),
 	}
 }
