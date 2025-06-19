@@ -184,7 +184,7 @@ func initialComponents() AppStateComponents {
 	}
 }
 
-func initialModel[Context any](agent *agents.Agent[Context], hideThoughts bool, context *Context) AppState[Context] {
+func initialModel[Context any](agent *agents.Agent[Context], context *Context, config tuiConfig) AppState[Context] {
 	agent.Logger = utils.NilLogger()
 
 	// Initialize spinner with custom frames for blinking bullet
@@ -198,7 +198,7 @@ func initialModel[Context any](agent *agents.Agent[Context], hideThoughts bool, 
 		components:   initialComponents(),
 		messages:     []types.Message{},
 		agent:        agent,
-		hideThoughts: hideThoughts,
+		hideThoughts: config.HideThoughts,
 		spinner:      s,
 		context:      context,
 	}
@@ -396,8 +396,51 @@ func (s AppState[Context]) View() string {
 
 var p *tea.Program
 
-func RunTUI[Context any](agent agents.Agent[Context], hideThoughts bool, context *Context) {
-	p = tea.NewProgram(initialModel(&agent, hideThoughts, context), tea.WithMouseCellMotion())
+type tuiConfig struct {
+	HideThoughts bool
+}
+
+func (c *tuiConfig) Apply(opts ...TUIOption) error {
+	for _, opt := range opts {
+		if err := opt.Apply(c); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func DefaultTUIConfig() tuiConfig {
+	return tuiConfig{}
+}
+
+type TUIOption interface {
+	Apply(config *tuiConfig) error
+}
+
+type tuiOptionFunc func(*tuiConfig) error
+
+func (f tuiOptionFunc) Apply(config *tuiConfig) error {
+	return f(config)
+}
+
+func HideThoughts() TUIOption {
+	return tuiOptionFunc(func(config *tuiConfig) error {
+		config.HideThoughts = true
+		return nil
+	})
+}
+
+func RunTUI[Context any](agent agents.Agent[Context], context *Context, opts ...TUIOption) {
+	config := DefaultTUIConfig()
+	config.Apply(opts...)
+	for _, opt := range opts {
+		if err := opt.Apply(&config); err != nil {
+			log.Fatal(err)
+			panic(err)
+		}
+	}
+
+	p = tea.NewProgram(initialModel(&agent, context, config), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}

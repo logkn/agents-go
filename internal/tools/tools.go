@@ -1,3 +1,4 @@
+// Package tools provides a set of tools for use with agents.
 package tools
 
 import (
@@ -54,7 +55,7 @@ func (t Tool[Context]) ToOpenAITool() openai.ChatCompletionToolParam {
 	}
 }
 
-// RunOnArgsWithContext unmarshals the provided JSON arguments and executes the tool with context.
+// RunOnArgs unmarshals the provided JSON arguments and executes the tool with context.
 // This method should be used when the tool requires access to the execution context.
 func (t Tool[Context]) RunOnArgs(args string, ctx *Context) any {
 	// parse the args into the tool's args type
@@ -76,4 +77,33 @@ func NewTool[T any](name, description string, args ToolArgs[T]) Tool[T] {
 		Description: description,
 		Args:        args,
 	}
+}
+
+// BaseTool is a tool that does not depend on context.
+// This means it is reusable across different agents.
+type BaseTool struct {
+	Name        string
+	Description string
+	Args        baseToolArgs
+}
+
+// baseToolArgsAdapter adapts baseToolArgs to work with ToolArgs[Context]
+type baseToolArgsAdapter[Context any] struct {
+	baseToolArgs
+}
+
+func (p baseToolArgsAdapter[Context]) Run(ctx *Context) any {
+	return p.baseToolArgs.Run()
+}
+
+func AsTool[Context any](base BaseTool) Tool[Context] {
+	return Tool[Context]{
+		Name:        base.Name,
+		Description: base.Description,
+		Args:        baseToolArgsAdapter[Context]{base.Args},
+	}
+}
+
+type baseToolArgs interface {
+	Run() any
 }

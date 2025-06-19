@@ -27,6 +27,17 @@ type Agent[Context any] struct {
 	Hooks *LifecycleHooks[Context]
 }
 
+func (a *Agent[Context]) WithBaseTools(baseTools ...tools.BaseTool) Agent[Context] {
+	ctxTools := []tools.Tool[Context]{}
+
+	for _, baseTool := range baseTools {
+		ctxTools = append(ctxTools, tools.AsTool[Context](baseTool))
+	}
+
+	a.Tools = append(a.Tools, ctxTools...)
+	return *a
+}
+
 // AllTools returns all tools (regular + handoff).
 func (a *Agent[Context]) AllTools() []tools.Tool[Context] {
 	handoffTools := make([]tools.Tool[Context], len(a.Handoffs))
