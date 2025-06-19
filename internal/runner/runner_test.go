@@ -1,8 +1,9 @@
 package runner
 
 import (
-	"github.com/logkn/agents-go/internal/types"
 	"testing"
+
+	"github.com/logkn/agents-go/internal/types"
 )
 
 func TestAgentEventAccessors(t *testing.T) {

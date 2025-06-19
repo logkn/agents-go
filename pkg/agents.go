@@ -4,24 +4,21 @@ package agents
 import (
 	"fmt"
 
-	agentcontext "github.com/logkn/agents-go/internal/context"
 	"github.com/logkn/agents-go/internal/runner"
 	"github.com/logkn/agents-go/internal/tools"
 	"github.com/logkn/agents-go/internal/types"
 )
 
 type (
-	Agent                 = types.Agent
-	ModelConfig           = types.ModelConfig
-	LifecycleHooks        = types.LifecycleHooks
-	Handoff               = types.Handoff
-	AnyContext            = agentcontext.AnyContext
-	Tool                  = tools.Tool
-	ToolArgs              = tools.ToolArgs
-	AnyContextualToolArgs = tools.AnyContextualToolArgs
-	Input                 = runner.Input
-	AgentResponse         = runner.AgentResponse
-	Role                  = types.Role
+	Agent[Context any]          = types.Agent[Context]
+	ModelConfig                 = types.ModelConfig
+	LifecycleHooks[Context any] = types.LifecycleHooks[Context]
+	Handoff[Context any]        = types.Handoff[Context]
+	Tool[Context any]           = tools.Tool[Context]
+	ToolArgs[Context any]       = tools.ToolArgs[Context]
+	Input                       = runner.Input
+	AgentResponse               = runner.AgentResponse
+	Role                        = types.Role
 )
 
 // Role constants
@@ -35,16 +32,16 @@ const (
 // agentToolArgs represents the parameters required when running an Agent as a
 // tool. The embedded agent field is ignored when generating a JSON schema and
 // when unmarshalling parameters.
-type agentToolArgs struct {
+type agentToolArgs[Context any] struct {
 	// Prompt is the user input passed to the nested agent.
 	Prompt string
 
-	agent types.Agent `json:"-"`
+	agent types.Agent[Context] `json:"-"`
 }
 
 // Run executes the wrapped agent using the provided prompt and returns the
 // final assistant response content. Errors are returned as strings.
-func (a agentToolArgs) Run() any {
+func (a agentToolArgs[Context]) Run(ctx *Context) any {
 	resp, err := runner.Run(a.agent, runner.Input{OfString: a.Prompt}, nil)
 	if err != nil {
 		return fmt.Sprintf("error running agent: %v", err)
@@ -55,81 +52,10 @@ func (a agentToolArgs) Run() any {
 // AsTool exposes the agent as an executable Tool. The returned Tool accepts a
 // single parameter `prompt` which is used as the input for the agent. When the
 // tool is invoked, the agent is run and the final response text is returned.
-func AsTool(a Agent, toolname, description string) tools.Tool {
-	return tools.Tool{
+func AsTool[Context any](a Agent[Context], toolname, description string) tools.Tool[Context] {
+	return tools.Tool[Context]{
 		Name:        toolname,
 		Description: description,
-		Args:        agentToolArgs{agent: types.Agent(a)},
+		Args:        agentToolArgs[Context]{agent: a},
 	}
-}
-
-// Context Creation Functions
-
-// ContextFactory is a function that creates a new context instance.
-type ContextFactory[T any] = agentcontext.ContextFactory[T]
-
-// NewContext creates a new typed context with the provided data.
-func NewContext[T any](data T) agentcontext.Context[T] {
-	return agentcontext.NewContext(data)
-}
-
-// EmptyContext creates a context with no data for agents that don't need context.
-func EmptyContext() agentcontext.Context[agentcontext.NoContext] {
-	return agentcontext.EmptyContext()
-}
-
-// FromAnyContext attempts to convert an AnyContext back to a typed Context[T].
-func FromAnyContext[T any](anyCtx AnyContext) (agentcontext.Context[T], error) {
-	return agentcontext.FromAnyContext[T](anyCtx)
-}
-
-// ToAnyContext converts a typed Context[T] to AnyContext for internal use.
-func ToAnyContext[T any](ctx agentcontext.Context[T]) AnyContext {
-	return agentcontext.ToAnyContext(ctx)
-}
-
-func AsContext[T any](ctx *T) AnyContext {
-	newCtx := NewContext(*ctx)
-	return ToAnyContext(newCtx)
-}
-
-// WithTools adds tools to an agent.
-func WithTools(agent Agent, tools ...Tool) Agent {
-	agent.Tools = append(agent.Tools, tools...)
-	return agent
-}
-
-// WithHooks adds lifecycle hooks to an agent.
-func WithHooks(agent Agent, hooks *LifecycleHooks) Agent {
-	agent.Hooks = hooks
-	return agent
-}
-
-// WithHandoffs adds handoff configurations to an agent.
-func WithHandoffs(agent Agent, handoffs ...types.Handoff) Agent {
-	agent.Handoffs = append(agent.Handoffs, handoffs...)
-	return agent
-}
-
-// Tool Creation Functions
-
-// NewTool creates a new tool with the given configuration.
-func NewTool(name, description string, args ToolArgs) Tool {
-	return tools.NewTool(name, description, args)
-}
-
-// NewContextualTool creates a new tool with context support.
-// Note: Tools no longer store context. Context is passed during execution.
-func NewContextualTool[T any](name, description string, args AnyContextualToolArgs, ctx agentcontext.Context[T]) Tool {
-	return tools.NewTool(name, description, args)
-}
-
-// Run executes an agent with the given input.
-func Run(agent Agent, input Input) (AgentResponse, error) {
-	return runner.Run(agent, input, nil)
-}
-
-// RunWithGlobalContext executes an agent with the given input and global context.
-func RunWithGlobalContext(agent Agent, input Input, globalContext AnyContext) (AgentResponse, error) {
-	return runner.Run(agent, input, globalContext)
 }

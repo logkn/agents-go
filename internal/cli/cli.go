@@ -123,20 +123,20 @@ func (item MessageAreaItem) View(hideThoughts bool, spinnerView string) string {
 	return ""
 }
 
-type AppState struct {
+type AppState[Context any] struct {
 	components AppStateComponents
 	// messages is purely for state & logic, not rendering
 	messages       []types.Message
 	items          []MessageAreaItem
 	responseBuffer string
-	agent          *agents.Agent
+	agent          *agents.Agent[Context]
 	streamHandler  StreamHandler
 	hideThoughts   bool
 	spinner        spinner.Model
-	context        agents.AnyContext
+	context        *Context
 }
 
-func (s *AppState) pushMessage(msg types.Message) {
+func (s *AppState[Context]) pushMessage(msg types.Message) {
 	s.items = append(s.items, MessageAreaItem{OfMessage: &UIMessage{msg}})
 	s.messages = append(s.messages, msg)
 }
@@ -184,7 +184,7 @@ func initialComponents() AppStateComponents {
 	}
 }
 
-func initialModel(agent *agents.Agent, hideThoughts bool, context agents.AnyContext) AppState {
+func initialModel[Context any](agent *agents.Agent[Context], hideThoughts bool, context *Context) AppState[Context] {
 	agent.Logger = utils.NilLogger()
 
 	// Initialize spinner with custom frames for blinking bullet
@@ -194,7 +194,7 @@ func initialModel(agent *agents.Agent, hideThoughts bool, context agents.AnyCont
 		FPS:    time.Second / 3,                //nolint:mnd
 	}
 
-	return AppState{
+	return AppState[Context]{
 		components:   initialComponents(),
 		messages:     []types.Message{},
 		agent:        agent,
@@ -211,11 +211,11 @@ type (
 
 // Tea.Model implementation
 
-func (s AppState) Init() tea.Cmd {
+func (s AppState[Context]) Init() tea.Cmd {
 	return tea.Batch(textarea.Blink, s.spinner.Tick)
 }
 
-func (s *AppState) ProcessCommand(userMessage string) bool {
+func (s *AppState[Context]) ProcessCommand(userMessage string) bool {
 	userMessage = strings.TrimSpace(userMessage)
 	switch userMessage {
 	case "/clear":
@@ -229,7 +229,7 @@ func (s *AppState) ProcessCommand(userMessage string) bool {
 	return true
 }
 
-func (s AppState) OnEvent(event runner.AgentEvent) (tea.Model, tea.Cmd) {
+func (s AppState[Context]) OnEvent(event runner.AgentEvent) (tea.Model, tea.Cmd) {
 	if token, hasToken := event.Token(); hasToken {
 		s.responseBuffer += token
 	}
@@ -254,7 +254,7 @@ func (s AppState) OnEvent(event runner.AgentEvent) (tea.Model, tea.Cmd) {
 	return s, nil
 }
 
-func (s *AppState) registerToolResponse(id string, response string) {
+func (s *AppState[Context]) registerToolResponse(id string, response string) {
 	// find the item where item.OfTool.call.ID == id
 	// and update the response
 
@@ -267,7 +267,7 @@ func (s *AppState) registerToolResponse(id string, response string) {
 	}
 }
 
-func (s *AppState) refreshViewport() {
+func (s *AppState[Context]) refreshViewport() {
 	vp := &s.components.viewport
 	spinnerView := s.spinner.View()
 
@@ -288,12 +288,12 @@ func (s *AppState) refreshViewport() {
 	vp.SetContent(lipgloss.NewStyle().Width(vp.Width).Render(content))
 }
 
-func (s *AppState) GoToBottom() {
+func (s *AppState[Context]) GoToBottom() {
 	s.refreshViewport()
 	s.components.viewport.GotoBottom()
 }
 
-func (s AppState) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (s AppState[Context]) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		tiCmd      tea.Cmd
 		vpCmd      tea.Cmd
@@ -368,16 +368,16 @@ func (s AppState) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return s, tea.Batch(tiCmd, vpCmd, spinnerCmd)
 }
 
-func (s *AppState) renderViewport() string {
+func (s *AppState[Context]) renderViewport() string {
 	s.refreshViewport()
 	return s.components.viewport.View()
 }
 
-func (s AppState) renderInput() string {
+func (s AppState[Context]) renderInput() string {
 	return s.components.inputBox.View()
 }
 
-func (s AppState) View() string {
+func (s AppState[Context]) View() string {
 	vp := s.renderViewport()
 	input := s.renderInput()
 	lines := []any{
@@ -396,15 +396,15 @@ func (s AppState) View() string {
 
 var p *tea.Program
 
-func RunTUI(agent agents.Agent, hideThoughts bool, context agents.AnyContext) {
+func RunTUI[Context any](agent agents.Agent[Context], hideThoughts bool, context *Context) {
 	p = tea.NewProgram(initialModel(&agent, hideThoughts, context), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func StreamAgent(agent *agents.Agent, messages []types.Message, context agents.AnyContext) *runner.AgentResponse {
-	agentResponse, err := runner.Run(types.Agent(*agent), runner.Input{OfMessages: messages}, context)
+func StreamAgent[Context any](agent *agents.Agent[Context], messages []types.Message, context *Context) *runner.AgentResponse {
+	agentResponse, err := runner.Run(types.Agent[Context](*agent), runner.Input{OfMessages: messages}, context)
 	if err != nil {
 		log.Fatal(err)
 		panic(err)

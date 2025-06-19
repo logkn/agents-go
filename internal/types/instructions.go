@@ -8,25 +8,22 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/logkn/agents-go/internal/context"
-	agentcontext "github.com/logkn/agents-go/internal/context"
 )
 
-type AgentInstructions struct {
+type AgentInstructions[Context any] struct {
 	OfString string
 	OfFile   string
 }
 
-func StringInstructions(s string) AgentInstructions {
-	return AgentInstructions{OfString: s}
+func StringInstructions[Context any](s string) AgentInstructions[Context] {
+	return AgentInstructions[Context]{OfString: s}
 }
 
-func FileInstructions(file string) AgentInstructions {
-	return AgentInstructions{OfFile: file}
+func FileInstructions[Context any](file string) AgentInstructions[Context] {
+	return AgentInstructions[Context]{OfFile: file}
 }
 
-func (ins AgentInstructions) getContent() (string, error) {
+func (ins AgentInstructions[Context]) getContent() (string, error) {
 	// Case: OfString
 	if ins.OfString != "" {
 		return ins.OfString, nil
@@ -56,7 +53,7 @@ func (ins AgentInstructions) getContent() (string, error) {
 	return string(content), nil
 }
 
-func (ins AgentInstructions) ToString(ctx agentcontext.AnyContext) (string, error) {
+func (ins AgentInstructions[Context]) ToString(ctx *Context) (string, error) {
 	content, err := ins.getContent()
 	if err != nil {
 		return "", err
@@ -70,14 +67,13 @@ func (ins AgentInstructions) ToString(ctx agentcontext.AnyContext) (string, erro
 	}
 
 	// get the value out of the context
-	ctxVal, err := context.FromAnyContext[any](ctx)
 	if err != nil {
 		return "", err
 	}
 
 	// make a buffer to hold the output
 	var buffer bytes.Buffer
-	err = templ.Execute(&buffer, ctxVal.Value())
+	err = templ.Execute(&buffer, ctx)
 	if err != nil {
 		return "", err
 	}

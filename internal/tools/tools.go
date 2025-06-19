@@ -1,11 +1,9 @@
 package tools
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 
-	"github.com/logkn/agents-go/internal/context"
 	"github.com/logkn/agents-go/internal/utils"
 	"github.com/openai/openai-go"
 	"github.com/stoewer/go-strcase"
@@ -13,26 +11,20 @@ import (
 
 // ToolArgs is implemented by a type that can execute a tool using its own
 // parameters.
-type ToolArgs interface {
-	Run() any
-}
-
-// ContextualToolArgs is implemented by a type that can execute a tool using its own
-// parameters and has access to the agent's execution context.
-type ContextualToolArgs[T any] interface {
-	RunWithContext(ctx context.Context[T]) any
+type ToolArgs[Context any] interface {
+	Run(ctx *Context) any
 }
 
 // Tool describes an executable function that can be invoked by an agent.
-type Tool struct {
+type Tool[Context any] struct {
 	Name        string
 	Description string
-	Args        ToolArgs
+	Args        ToolArgs[Context]
 }
 
 // CompleteName returns the explicit name if set or derives one from the
 // argument type.
-func (t Tool) CompleteName() string {
+func (t Tool[Context]) CompleteName() string {
 	if t.Name != "" {
 		return t.Name
 	}
@@ -44,7 +36,7 @@ func (t Tool) CompleteName() string {
 }
 
 // ToOpenAITool converts this tool into the format expected by the OpenAI SDK.
-func (t Tool) ToOpenAITool() openai.ChatCompletionToolParam {
+func (t Tool[Context]) ToOpenAITool() openai.ChatCompletionToolParam {
 	slog.Debug("converting tool to OpenAI format", "tool_name", t.CompleteName())
 	schema, err := utils.CreateSchema(t.Args)
 	if err != nil {
@@ -62,95 +54,24 @@ func (t Tool) ToOpenAITool() openai.ChatCompletionToolParam {
 	}
 }
 
-// RunOnArgs unmarshals the provided JSON arguments and executes the tool.
-func (t Tool) RunOnArgs(args string) any {
-	slog.Debug("unmarshaling tool arguments", "tool_name", t.CompleteName(), "args", args)
-	argsInstance := utils.NewInstance(t.Args).(ToolArgs)
-	err := json.Unmarshal([]byte(args), argsInstance)
-	if err != nil {
-		slog.Error("failed to unmarshal tool arguments",
-			"tool_name", t.CompleteName(),
-			"args", args,
-			"error", err)
-		return map[string]any{
-			"error": fmt.Sprintf("Failed to unmarshal tool arguments: %v", err),
-			"tool":  t.CompleteName(),
-			"args":  args,
-		}
-	}
+// RunOnArgsWithContext unmarshals the provided JSON arguments and executes the tool with context.
+// This method should be used when the tool requires access to the execution context.
+func (t Tool[Context]) RunOnArgs(args string, ctx *Context) any {
+	// parse the args into the tool's args type
 
-	slog.Debug("executing tool", "tool_name", t.CompleteName())
-	result := argsInstance.Run()
+	slog.Debug("unmarshaling tool arguments", "tool_name", t.CompleteName(), "args", args)
+	argsInstance := utils.NewInstance(t.Args).(ToolArgs[Context])
+
+	// execute the tool
+	result := argsInstance.Run(ctx)
 	slog.Debug("tool execution completed", "tool_name", t.CompleteName())
+
 	return result
 }
 
-// RunOnArgsWithContext unmarshals the provided JSON arguments and executes the tool with context.
-// This method should be used when the tool requires access to the execution context.
-func (t Tool) RunOnArgsWithContext(args string, globalContext context.AnyContext) any {
-	if globalContext == nil {
-		slog.Warn("no global context provided but RunOnArgsWithContext was called", "tool_name", t.CompleteName())
-		return t.RunOnArgs(args)
-	}
-
-	slog.Debug("unmarshaling contextual tool arguments", "tool_name", t.CompleteName(), "args", args)
-	argsInstance := utils.NewInstance(t.Args)
-	err := json.Unmarshal([]byte(args), argsInstance)
-	if err != nil {
-		slog.Error("failed to unmarshal contextual tool arguments",
-			"tool_name", t.CompleteName(),
-			"args", args,
-			"error", err)
-		return map[string]any{
-			"error": fmt.Sprintf("Failed to unmarshal tool arguments: %v", err),
-			"tool":  t.CompleteName(),
-			"args":  args,
-		}
-	}
-
-	slog.Debug("executing contextual tool", "tool_name", t.CompleteName(), "context_type", globalContext.TypeName())
-
-	// Try to execute as contextual tool first, fallback to regular tool
-	if result, ok := t.tryRunWithContext(argsInstance, globalContext); ok {
-		slog.Debug("contextual tool execution completed", "tool_name", t.CompleteName())
-		return result
-	}
-
-	// Fallback to regular tool execution
-	slog.Debug("contextual execution failed, falling back to regular execution", "tool_name", t.CompleteName())
-	if toolArgs, ok := argsInstance.(ToolArgs); ok {
-		result := toolArgs.Run()
-		slog.Debug("tool execution completed (fallback)", "tool_name", t.CompleteName())
-		return result
-	}
-
-	return map[string]any{
-		"error": "Tool does not implement ToolArgs interface",
-		"tool":  t.CompleteName(),
-	}
-}
-
-// tryRunWithContext attempts to run the tool with context using reflection to handle the generic type.
-func (t Tool) tryRunWithContext(argsInstance any, globalContext context.AnyContext) (any, bool) {
-	// Check if the args instance implements AnyContextualToolArgs
-	if contextualTool, ok := argsInstance.(AnyContextualToolArgs); ok {
-		result := contextualTool.RunWithAnyContext(globalContext)
-		return result, true
-	}
-
-	return nil, false
-}
-
-// AnyContextualToolArgs is a marker interface for tools that can work with any context type.
-// This provides a bridge between the generic ContextualToolArgs[T] and runtime execution.
-type AnyContextualToolArgs interface {
-	ToolArgs // Still implements basic ToolArgs for fallback
-	RunWithAnyContext(ctx context.AnyContext) any
-}
-
 // NewTool creates a new tool with the given name, description, and args.
-func NewTool(name, description string, args ToolArgs) Tool {
-	return Tool{
+func NewTool[T any](name, description string, args ToolArgs[T]) Tool[T] {
+	return Tool[T]{
 		Name:        name,
 		Description: description,
 		Args:        args,

@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strings"
 
-	agentcontext "github.com/logkn/agents-go/internal/context"
 	"github.com/logkn/agents-go/internal/types"
 	"github.com/logkn/agents-go/internal/utils"
 	"github.com/openai/openai-go"
@@ -34,7 +33,7 @@ type Input struct {
 }
 
 // findHandoffByToolName searches for a handoff that matches the given tool name
-func findHandoffByToolName(agent types.Agent, toolName string) *types.Handoff {
+func findHandoffByToolName[Context any](agent types.Agent[Context], toolName string) *types.Handoff[Context] {
 	for _, handoff := range agent.Handoffs {
 		if handoff.ToolName == toolName ||
 			(handoff.ToolName == "" && strings.HasPrefix(toolName, "transfer_to_")) {
@@ -45,7 +44,7 @@ func findHandoffByToolName(agent types.Agent, toolName string) *types.Handoff {
 }
 
 // isHandoffTool checks if the given tool name corresponds to a handoff tool
-func isHandoffTool(agent types.Agent, toolName string) bool {
+func isHandoffTool[Context any](agent types.Agent[Context], toolName string) bool {
 	return findHandoffByToolName(agent, toolName) != nil
 }
 
@@ -56,7 +55,7 @@ func isHandoffTool(agent types.Agent, toolName string) bool {
 // history. Otherwise a new conversation is started with input.OfString as the
 // user prompt.
 // The globalContext parameter provides shared state accessible to all tools during execution.
-func Run(agent types.Agent, input Input, globalContext agentcontext.AnyContext) (AgentResponse, error) {
+func Run[Context any](agent types.Agent[Context], input Input, ctx *Context) (AgentResponse, error) {
 	logger := agent.Logger
 	if logger == nil {
 		logger = slog.Default()
@@ -70,7 +69,7 @@ func Run(agent types.Agent, input Input, globalContext agentcontext.AnyContext) 
 
 	// Execute BeforeRun hook
 	if agent.Hooks != nil && agent.Hooks.BeforeRun != nil {
-		if err := agent.Hooks.BeforeRun(globalContext); err != nil {
+		if err := agent.Hooks.BeforeRun(ctx); err != nil {
 			logger.Error("BeforeRun hook failed", "error", err)
 			return AgentResponse{}, fmt.Errorf("BeforeRun hook failed: %w", err)
 		}
@@ -117,7 +116,7 @@ func Run(agent types.Agent, input Input, globalContext agentcontext.AnyContext) 
 			logger.Debug("sending request to LLM", "message_count", len(messages))
 			openaiMessages := utils.MapSlice(messages, types.Message.ToOpenAI)
 			// insert the instructions at the beginning of the openaiMessages
-			instructions, err := agent.Instructions.ToString(globalContext)
+			instructions, err := agent.Instructions.ToString(ctx)
 			if err != nil {
 				panic(err)
 			}
@@ -239,7 +238,7 @@ func Run(agent types.Agent, input Input, globalContext agentcontext.AnyContext) 
 
 						// Execute BeforeToolCall hook
 						if agent.Hooks != nil && agent.Hooks.BeforeToolCall != nil {
-							if err := agent.Hooks.BeforeToolCall(globalContext, funcname, toolcall.Args); err != nil {
+							if err := agent.Hooks.BeforeToolCall(ctx, funcname, toolcall.Args); err != nil {
 								logger.Error("BeforeToolCall hook failed", "error", err, "tool_name", funcname)
 								continue
 							}
@@ -247,15 +246,11 @@ func Run(agent types.Agent, input Input, globalContext agentcontext.AnyContext) 
 
 						var result any
 						// Use contextual execution if global context is provided, otherwise use regular execution
-						if globalContext != nil {
-							result = tool.RunOnArgsWithContext(toolcall.Args, globalContext)
-						} else {
-							result = tool.RunOnArgs(toolcall.Args)
-						}
+						result = tool.RunOnArgs(toolcall.Args, ctx)
 
 						// Execute AfterToolCall hook
 						if agent.Hooks != nil && agent.Hooks.AfterToolCall != nil {
-							if err := agent.Hooks.AfterToolCall(globalContext, funcname, result); err != nil {
+							if err := agent.Hooks.AfterToolCall(ctx, funcname, result); err != nil {
 								logger.Error("AfterToolCall hook failed", "error", err, "tool_name", funcname)
 							}
 						}
@@ -293,7 +288,7 @@ func Run(agent types.Agent, input Input, globalContext agentcontext.AnyContext) 
 					}
 				}
 			}
-			if err := agent.Hooks.AfterRun(globalContext, finalResponse); err != nil {
+			if err := agent.Hooks.AfterRun(ctx, finalResponse); err != nil {
 				logger.Error("AfterRun hook failed", "error", err)
 			}
 		}
