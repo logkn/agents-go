@@ -1,3 +1,4 @@
+// Package agents
 package agents
 
 import (
@@ -85,6 +86,11 @@ func FromAnyContext[T any](anyCtx AnyContext) (agentcontext.Context[T], error) {
 // ToAnyContext converts a typed Context[T] to AnyContext for internal use.
 func ToAnyContext[T any](ctx agentcontext.Context[T]) AnyContext {
 	return agentcontext.ToAnyContext(ctx)
+}
+
+func AsContext[T any](ctx *T) AnyContext {
+	newCtx := NewContext(*ctx)
+	return ToAnyContext(newCtx)
 }
 
 // WithTools adds tools to an agent.

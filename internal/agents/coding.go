@@ -1,7 +1,6 @@
 package agents
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/logkn/agents-go/internal/context"
@@ -63,7 +62,7 @@ For every request, you should infer the success criteria, and continue working u
 </example_behavior>
 ---
 
-The working directory is currently: %s
+The working directory is currently: {{.cwd}}
 `
 
 type CodingContext struct {
@@ -84,17 +83,8 @@ func NewCodingContext() agents.AnyContext {
 }
 
 var CodingAgent = agents.Agent{
-	Name: "Coding Agent",
-	Instructions: types.AgentInstructions{OfFunc: func(ctx context.AnyContext) (string, error) {
-		// format instructions with current working directory
-		context, err := agents.FromAnyContext[CodingContext](ctx)
-		if err != nil {
-			return "", err
-		}
-		cwd := context.Value().cwd // Get the current working directory
-
-		return fmt.Sprintf(Instructions, cwd), nil
-	}},
+	Name:         "Coding Agent",
+	Instructions: agents.StringInstructions(Instructions),
 	Tools: []tools.Tool{
 		tools.FileReadTool,
 		tools.FileWriteTool,
