@@ -12,7 +12,6 @@ import (
 
 type (
 	Agent[Context any]          = types.Agent[Context]
-	ModelConfig                 = types.ModelConfig
 	LifecycleHooks[Context any] = types.LifecycleHooks[Context]
 	Handoff[Context any]        = types.Handoff[Context]
 	Tool[Context any]           = tools.Tool[Context]
@@ -61,8 +60,8 @@ func AsTool[Context any](a Agent[Context], toolname, description string) tools.T
 	}
 }
 
-func NewAgent[Context any](model ModelConfig) Agent[Context] {
-	return Agent[Context]{
+func NewAgent[Context any](model Model) *Agent[Context] {
+	return &Agent[Context]{
 		Model:        model,
 		Tools:        []tools.Tool[Context]{},
 		Logger:       utils.NilLogger(),
@@ -70,4 +69,8 @@ func NewAgent[Context any](model ModelConfig) Agent[Context] {
 		Name:         "Agent",
 		Instructions: types.StringInstructions[Context]("You are a helpful assistant."),
 	}
+}
+
+func BaseAgent(model Model) *Agent[TNull] {
+	return NewAgent[TNull](model)
 }

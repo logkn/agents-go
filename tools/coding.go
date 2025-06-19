@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/logkn/agents-go/internal/tools"
 	"github.com/logkn/agents-go/internal/utils"
 )
 
@@ -21,7 +22,7 @@ func (p pwd) Run() any {
 	return path
 }
 
-var PwdTool = BaseTool{
+var PwdTool = tools.BaseTool{
 	Name:        "pwd",
 	Description: "Get the current working directory.",
 	Args:        pwd{},
@@ -54,7 +55,7 @@ func (f fileread) Run() any {
 	return strings.Join(lines[start:end], "\n")
 }
 
-var FileReadTool = BaseTool{
+var FileReadTool = tools.BaseTool{
 	Args:        fileread{},
 	Description: "Reads a file and returns its contents as a string. The file is read starting from the offset line and limited to the specified number of lines.",
 	Name:        "file_read",
@@ -76,7 +77,7 @@ func (l List) Run() any {
 	return names
 }
 
-var ListTool = BaseTool{
+var ListTool = tools.BaseTool{
 	Args:        List{},
 	Description: "Lists the files in a directory.",
 	Name:        "list",
@@ -100,7 +101,7 @@ func (f filewrite) Run() any {
 	return "Done! Please read the file to see the changes."
 }
 
-var FileWriteTool = BaseTool{
+var FileWriteTool = tools.BaseTool{
 	Args:        filewrite{},
 	Description: "Writes text to a file.",
 	Name:        "file_write",
@@ -138,7 +139,7 @@ func (p patch) Run() any {
 	return fmt.Sprintf("Done! The following is a unified diff of the changes:\n\n%s", utils.ShowDiff(string(oldContent), string(oldContent)))
 }
 
-var PatchTool = BaseTool{
+var PatchTool = tools.BaseTool{
 	Args:        patch{},
 	Description: "Edit a file by doing a text replacement.",
 	Name:        "edit_file",
@@ -199,7 +200,7 @@ func (g glob) Run() any {
 	return lines
 }
 
-var GlobTool = BaseTool{
+var GlobTool = tools.BaseTool{
 	Args:        glob{},
 	Description: "Find files matching a glob pattern. Supports wildcards like *.go, **/*.js, etc.",
 	Name:        "glob",

@@ -3,7 +3,6 @@ package types
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"html/template"
 	"os"
 	"path/filepath"
@@ -58,8 +57,6 @@ func (ins AgentInstructions[Context]) ToString(ctx *Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	fmt.Println(ctx)
 
 	templ, err := template.New("instructions").Option("missingkey=error").Parse(content)
 	if err != nil {

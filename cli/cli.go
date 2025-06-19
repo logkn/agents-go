@@ -1,3 +1,4 @@
+// Package cli provides a command-line interface for interacting with agents.
 package cli
 
 import (
@@ -185,7 +186,11 @@ func initialComponents() AppStateComponents {
 }
 
 func initialModel[Context any](agent *agents.Agent[Context], context *Context, config tuiConfig) AppState[Context] {
-	agent.Logger = utils.NilLogger()
+	if config.LogToFile != "" {
+		agent.Logger = utils.FileLogger(config.LogToFile)
+	} else {
+		agent.Logger = utils.NilLogger()
+	}
 
 	// Initialize spinner with custom frames for blinking bullet
 	s := spinner.New()
@@ -398,6 +403,7 @@ var p *tea.Program
 
 type tuiConfig struct {
 	HideThoughts bool
+	LogToFile    string
 }
 
 func (c *tuiConfig) Apply(opts ...TUIOption) error {
@@ -430,19 +436,21 @@ func HideThoughts() TUIOption {
 	})
 }
 
-func RunTUI[Context any](agent agents.Agent[Context], context *Context, opts ...TUIOption) {
+func LogToFile(filename string) TUIOption {
+	return tuiOptionFunc(func(config *tuiConfig) error {
+		config.LogToFile = filename
+		return nil
+	})
+}
+
+func RunTUI[Context any](agent *agents.Agent[Context], context *Context, opts ...TUIOption) {
 	config := DefaultTUIConfig()
 	config.Apply(opts...)
-	for _, opt := range opts {
-		if err := opt.Apply(&config); err != nil {
-			log.Fatal(err)
-			panic(err)
-		}
-	}
 
-	p = tea.NewProgram(initialModel(&agent, context, config), tea.WithMouseCellMotion())
+	p = tea.NewProgram(initialModel(agent, context, config), tea.WithMouseCellMotion())
 	if _, err := p.Run(); err != nil {
 		log.Fatal(err)
+		panic(err)
 	}
 }
 

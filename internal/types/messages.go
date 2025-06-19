@@ -127,12 +127,3 @@ func AssistantMessageFromOpenAI(msg openai.ChatCompletionMessage, name string) M
 		toolCalls,
 	)
 }
-
-// ModelConfig contains configuration details for an LLM model.
-// Model is the identifier of the model to use and BaseUrl is an optional
-// override for the API base URL.
-type ModelConfig struct {
-	Model       string
-	BaseUrl     string
-	Temperature float32
-}

@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/logkn/agents-go/internal/tools"
 )
 
 // webSearch performs web searches using the Google Custom Search API.
@@ -115,7 +117,7 @@ func (w webSearch) Run() any {
 	return SearchResponse{Results: results}
 }
 
-var SearchTool = BaseTool{
+var SearchTool = tools.BaseTool{
 	Name:        "web_search",
 	Description: "Search the web for accurate and up-to-date information.",
 	Args:        webSearch{},

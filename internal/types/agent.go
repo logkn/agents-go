@@ -27,15 +27,15 @@ type Agent[Context any] struct {
 	Hooks *LifecycleHooks[Context]
 }
 
-func (a *Agent[Context]) WithBaseTools(baseTools ...tools.BaseTool) Agent[Context] {
+func (a *Agent[Context]) WithBaseTools(baseTools ...tools.BaseTool) *Agent[Context] {
 	ctxTools := []tools.Tool[Context]{}
 
 	for _, baseTool := range baseTools {
-		ctxTools = append(ctxTools, tools.AsTool[Context](baseTool))
+		ctxTools = append(ctxTools, tools.CoerceBaseTool[Context](baseTool))
 	}
 
 	a.Tools = append(a.Tools, ctxTools...)
-	return *a
+	return a
 }
 
 // AllTools returns all tools (regular + handoff).
@@ -51,8 +51,8 @@ func (a *Agent[Context]) AllTools() []tools.Tool[Context] {
 	return append(a.Tools, handoffTools...)
 }
 
-func NewAgent[Context any](name string, model ModelConfig) Agent[Context] {
-	return Agent[Context]{
+func NewAgent[Context any](name string, model ModelConfig) *Agent[Context] {
+	return &Agent[Context]{
 		Name:         name,
 		Model:        model,
 		Tools:        []tools.Tool[Context]{},
@@ -64,7 +64,7 @@ func NewAgent[Context any](name string, model ModelConfig) Agent[Context] {
 }
 
 // WithTools returns a new agent with the given tools.
-func (a *Agent[Context]) WithTools(tools []tools.Tool[Context]) *Agent[Context] {
+func (a *Agent[Context]) WithTools(tools ...tools.Tool[Context]) *Agent[Context] {
 	a.Tools = append(a.Tools, tools...)
 	return a
 }
@@ -77,5 +77,15 @@ func (a *Agent[Context]) WithHandoffs(handoffs []Handoff[Context]) *Agent[Contex
 
 func (a *Agent[Context]) WithInstructions(instructions AgentInstructions[Context]) *Agent[Context] {
 	a.Instructions = instructions
+	return a
+}
+
+func (a *Agent[Context]) WithInstructionsString(instructions string) *Agent[Context] {
+	a.Instructions = StringInstructions[Context](instructions)
+	return a
+}
+
+func (a *Agent[Context]) WithInstructionsFile(instructions string) *Agent[Context] {
+	a.Instructions = FileInstructions[Context](instructions)
 	return a
 }

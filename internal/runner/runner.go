@@ -88,10 +88,10 @@ func Run[Context any](agent types.Agent[Context], input Input, ctx *Context) (Ag
 	}
 
 	var client openai.Client
-	if agent.Model.BaseUrl != "" {
-		logger.Debug("using custom base URL", "base_url", agent.Model.BaseUrl)
+	if agent.Model.BaseURL != "" {
+		logger.Debug("using custom base URL", "base_url", agent.Model.BaseURL)
 		client = openai.NewClient(
-			option.WithBaseURL(agent.Model.BaseUrl),
+			option.WithBaseURL(agent.Model.BaseURL),
 		)
 	} else {
 		logger.Debug("using OpenAI API")
@@ -244,9 +244,8 @@ func Run[Context any](agent types.Agent[Context], input Input, ctx *Context) (Ag
 							}
 						}
 
-						var result any
 						// Use contextual execution if global context is provided, otherwise use regular execution
-						result = tool.RunOnArgs(toolcall.Args, ctx)
+						result := tool.RunOnArgs(toolcall.Args, ctx)
 
 						// Execute AfterToolCall hook
 						if agent.Hooks != nil && agent.Hooks.AfterToolCall != nil {
